@@ -6,7 +6,7 @@
 
 | Skill | 状态 | 说明 |
 |---|---|---|
-| [paper-figures](skills/paper-figures/) | ✅ 可用 | 顶刊标准论文绘图：Python/matplotlib 矢量出图，按期刊栏宽定尺寸，内置 XRD/XPS/Raman/电化学/吸附等温线等图型规范与色盲安全配色，交付可复现脚本 + PDF + PNG |
+| [paper-figures](skills/paper-figures/) | ✅ 可用 | 顶刊标准论文绘图：Python/matplotlib 矢量出图，按期刊栏宽定尺寸，内置 XRD/XPS/Raman/电化学/吸附等温线等图型规范与色盲安全配色；方法示意图/技术路线图同样用 matplotlib（真实感合成 panel + 论文/汇报双风格）。交付可复现脚本 + PDF + PNG |
 | paper-polish | 🚧 计划中 | 顶刊编辑视角论文润色：逐条修改意见 + 中文讲解 + 去 AI 味 |
 
 ## 安装
@@ -50,9 +50,11 @@ academic-skills/
 │       ├── references/           # 按需加载的规范文档
 │       │   ├── chart-types.md    # 各类表征图型规范（XRD/XPS/电化学/…）
 │       │   ├── journal-specs.md  # 期刊栏宽/字号/DPI/TOC 规格速查
-│       │   └── color-and-style.md# 配色（Okabe-Ito/viridis）与风格细节
+│       │   ├── color-and-style.md# 配色（Okabe-Ito/viridis）与风格细节
+│       │   └── schematic-figures.md # 方法示意图/技术路线图技法
 │       └── scripts/
-│           └── paperfig.py       # 统一样式与导出工具（随交付复制给用户）
+│           ├── paperfig.py       # 数据图统一样式与导出工具（随交付复制给用户）
+│           └── schemfig.py       # 示意图组件库（圆角框/曲线箭头/伪3D/双风格）
 └── .claude-plugin/
     └── marketplace.json          # Claude Code 插件市场清单
 ```

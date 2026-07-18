@@ -24,12 +24,13 @@ description: 以材料/化学顶刊（Nature、Science、JACS、Angew、Advanced
 - 数据在哪：用户给的文件（csv/xlsx/txt/仪器导出）→ 先读几行看清格式；只有描述 → 走示例数据模板路线（原则 4）。
 - 目标期刊与栏宽：用户说了就用；没说就默认 wiley 单栏（Angew/AM 是本领域最常见去向），并在交付说明里注明"换刊只改一个参数"。
 - 图型选择与该测量类型的画法惯例：**读 references/chart-types.md 里对应的小节**（XRD、XPS、Raman/FTIR、UV-Vis/Tauc、PL/TRPL、电化学、吸附等温线、TGA、活性与循环稳定性、DFT 能带等逐一有规范和代码要点）。
+- 要画的是方法示意图/技术路线图/机理图（不是数据图）：**读 references/schematic-figures.md**，用 scripts/schemfig.py 组件库。
 - 期刊详细规格（栏宽、字号、DPI、TOC 图尺寸）：需要时查 references/journal-specs.md。
 - 配色与风格细节：需要时查 references/color-and-style.md。
 
 ### 第 1 步：搭工作目录
 
-在用户项目下建 `figures/` 目录（已有就沿用），把本 skill 的 `scripts/paperfig.py` 复制进去。目录约定：
+在用户项目下建 `figures/` 目录（已有就沿用），把本 skill 的 `scripts/paperfig.py` 复制进去（画示意图时把 `scripts/schemfig.py` 也一并复制）。目录约定：
 
 ```
 figures/
@@ -71,7 +72,7 @@ figures/
 - **仪器导出的脏数据**：XRD/XPS/电化学工作站导出的 txt 常带若干行元数据头。先 `Read` 文件看前 30 行，再用 `pandas.read_csv` 的 `skiprows`/`sep` 精确解析，不要盲猜。
 - **"帮我把这张图画得像 Origin"**：全框+内刻度就是 paperfig 的默认样式，不需要额外做什么；把用户在意的具体细节（刻度密度、图例位置）逐项对齐即可。
 - **审稿人批评图**：先把审稿意见逐条翻译成上面自检清单里的具体问题，诊断旧图，再重画。交付时写明每条意见对应改了什么。
-- **机理图/流程图/示意图**：不属于数据图，不要用 matplotlib 硬画。简单的（能带对齐、电荷转移路径、合成流程）直接手写 SVG，同样遵守字体字号规范；复杂 3D 晶体结构/形貌示意建议用户用 VESTA/Blender 出素材，你负责排版组合与标注。
+- **方法示意图/技术路线图/机理图**：复杂示意图（多阶段 pipeline、含数据 panel、需要论文+汇报双风格）用 matplotlib + scripts/schemfig.py 画——全图坐标布局、真实感合成 panel、双风格字典，完整技法读 references/schematic-figures.md。三五个框的轻量示意（能带对齐、简单流程）手写 SVG 也可以，字体字号规范照旧。复杂 3D 晶体结构/形貌仍建议用户用 VESTA/Blender 出素材，你负责排版组合与标注。
 - **中文图（学位论文/基金本子）**：正文字体换成宋体/黑体（macOS 上 `Songti SC`/`Heiti SC`），字号放大到 9–10.5 pt，栏宽按 A4 版心（约 150 mm）。其余规范不变。
 - **数据量极大**（如百万点的电化学循环数据）：先降采样或分段再画，矢量图里塞几十万个点会让 PDF 卡死排版系统；必要时该图层单独栅格化（`rasterized=True`）。
 
