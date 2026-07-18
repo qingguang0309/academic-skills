@@ -9,6 +9,8 @@
 | [paper-figures](skills/paper-figures/) | ✅ 可用 | 顶刊标准论文绘图：Python/matplotlib 矢量出图，按期刊栏宽定尺寸，内置 XRD/XPS/Raman/电化学/吸附等温线等图型规范与色盲安全配色；方法示意图/技术路线图同样用 matplotlib（真实感合成 panel + 论文/汇报双风格）。交付可复现脚本 + PDF + PNG |
 | paper-polish | 🚧 计划中 | 顶刊编辑视角论文润色：逐条修改意见 + 中文讲解 + 去 AI 味 |
 
+此外,仓库内置 **[paperflow](paperflow/)** —— 基于 LangGraph 的论文生成流水线:大纲 → 文献 → 引用真实性核验(Crossref/Semantic Scholar 交叉验证,自动剔除编造引用)→ 分章起草 → 图表 → pandoc 组装(docx/tex)→ 质检修订循环。LLM 后端可插拔(anthropic SDK / claude CLI / 离线 fixture),端到端演示见 [examples/paperflow-demo](examples/paperflow-demo/)。
+
 ## 安装
 
 ### Claude Code（推荐）
@@ -44,6 +46,8 @@ cp -r academic-skills/skills/paper-figures ~/.claude/skills/
 
 ```
 academic-skills/
+├── paperflow/                    # LangGraph 论文生成流水线(引用核验/组装/QA)
+├── examples/                     # 端到端演示(paper-figures-demo、paperflow-demo)
 ├── skills/
 │   └── paper-figures/
 │       ├── SKILL.md              # 技能主文件（触发条件 + 工作流程）

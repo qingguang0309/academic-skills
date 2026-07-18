@@ -1,0 +1,26 @@
+{
+  "title": "Iron Incorporation Turns Nickel Hydroxide into a High-Activity Oxygen Evolution Electrocatalyst: An Illustrative NiFe-LDH Case Study",
+  "qa": {
+    "passed": true,
+    "issues": []
+  },
+  "bibliography": [
+    "trotochaud2014",
+    "mccrory2013",
+    "dionigi2016",
+    "suntivich2011",
+    "grimaud2013"
+  ],
+  "dropped_refs": [
+    {
+      "key": "fabricated2026",
+      "reason": "DOI 在 Crossref/Semantic Scholar 均未命中"
+    }
+  ],
+  "outputs": [
+    "/Users/shodan/project/academic-skills/examples/paperflow-demo/paper.md",
+    "/Users/shodan/project/academic-skills/examples/paperflow-demo/paper.docx",
+    "/Users/shodan/project/academic-skills/examples/paperflow-demo/paper.tex"
+  ],
+  "revisions": 0
+}
