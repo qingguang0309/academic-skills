@@ -1,0 +1,18 @@
+{
+  "name": "academic-skills",
+  "owner": {
+    "name": "qingguang"
+  },
+  "metadata": {
+    "description": "Academic skills for Claude: publication-quality paper figures, paper polishing, and more",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "academic-skills",
+      "source": "./",
+      "description": "论文绘图（paper-figures）等学术技能合集：材料/化学顶刊标准",
+      "strict": false
+    }
+  ]
+}
