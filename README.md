@@ -16,7 +16,7 @@
 复制 skill 到个人技能目录（全局可用）：
 
 ```bash
-git clone https://github.com/<你的用户名>/academic-skills.git
+git clone https://github.com/qingguang0309/academic-skills.git
 cp -r academic-skills/skills/paper-figures ~/.claude/skills/
 ```
 
@@ -25,7 +25,7 @@ cp -r academic-skills/skills/paper-figures ~/.claude/skills/
 也可以作为插件市场安装：
 
 ```
-/plugin marketplace add <你的用户名>/academic-skills
+/plugin marketplace add qingguang0309/academic-skills
 /plugin install academic-skills@academic-skills
 ```
 
