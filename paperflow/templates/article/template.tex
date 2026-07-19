@@ -1,0 +1,59 @@
+% ============================================================
+% paperflow article template — single-column SCI journal style
+% All double-at placeholders are filled by the paperflow pipeline
+% via plain Python string replacement (contract: see README.md).
+% Do NOT rename them.
+% Compiles with: tectonic template_filled.tex
+% Only TeX Live core packages are used (no shell-escape, no minted).
+% ============================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- page layout ----------
+\usepackage[margin=2.5cm]{geometry}
+
+% ---------- math (load amsmath BEFORE newtxmath) ----------
+\usepackage{amsmath}
+
+% ---------- Times-like text and math fonts ----------
+\usepackage{newtxtext}
+\usepackage{newtxmath}
+
+% ---------- graphics and tables ----------
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+% ---------- captions ----------
+\usepackage[labelfont=bf,font=small]{caption}
+
+% ---------- citations: author-year, (Author, 2024; Other, 2025) ----------
+\usepackage[round,semicolon,authoryear]{natbib}
+
+% ---------- line spacing ----------
+\usepackage{setspace}
+\setstretch{1.15}
+
+% ---------- hyperref MUST be loaded last ----------
+\usepackage[hidelinks]{hyperref}
+
+% ---------- title block ----------
+\title{@@TITLE@@}
+\author{@@AUTHOR@@\\ \small @@AFFILIATION@@}
+\date{@@DATE@@}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+@@ABSTRACT@@
+\end{abstract}
+
+\medskip
+\noindent\textbf{Keywords:} @@KEYWORDS@@
+
+@@BODY@@
+
+\bibliographystyle{plainnat}
+\bibliography{@@BIBFILE@@}
+
+\end{document}

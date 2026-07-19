@@ -18,9 +18,8 @@
     }
   ],
   "outputs": [
-    "/Users/shodan/project/academic-skills/examples/paperflow-demo/paper.md",
-    "/Users/shodan/project/academic-skills/examples/paperflow-demo/paper.docx",
-    "/Users/shodan/project/academic-skills/examples/paperflow-demo/paper.tex"
+    "/Users/shodan/project/academic-skills/examples/paperflow-demo/pkuthss_build/thesis.tex",
+    "/Users/shodan/project/academic-skills/examples/paperflow-demo/pkuthss_build/thesis.pdf"
   ],
   "revisions": 0
 }

@@ -9,7 +9,7 @@
 | [paper-figures](skills/paper-figures/) | ✅ 可用 | 顶刊标准论文绘图：Python/matplotlib 矢量出图，按期刊栏宽定尺寸，内置 XRD/XPS/Raman/电化学/吸附等温线等图型规范与色盲安全配色；方法示意图/技术路线图同样用 matplotlib（真实感合成 panel + 论文/汇报双风格）。交付可复现脚本 + PDF + PNG |
 | paper-polish | 🚧 计划中 | 顶刊编辑视角论文润色：逐条修改意见 + 中文讲解 + 去 AI 味 |
 
-此外,仓库内置 **[paperflow](paperflow/)** —— 基于 LangGraph 的论文生成流水线:大纲 → 文献 → 引用真实性核验(Crossref/Semantic Scholar 交叉验证,自动剔除编造引用)→ 分章起草 → 图表 → pandoc 组装(docx/tex)→ 质检修订循环。LLM 后端可插拔(anthropic SDK / claude CLI / 离线 fixture),端到端演示见 [examples/paperflow-demo](examples/paperflow-demo/)。
+此外,仓库内置 **[paperflow](paperflow/)** —— 基于 LangGraph 的论文生成流水线:大纲之后**文献链与图表链并行**(按主题现场生成 matplotlib 图),引用经 Crossref/Semantic Scholar 真实性核验(自动剔除编造 DOI),再渲染进**标准 LaTeX 模板**(SCI 单栏投稿格式 / 北京大学 pkuthss 学位论文)并用 tectonic 编译 PDF,QA 不过自动修订。LLM 后端默认走**本机 claude CLI 登录态**(不需要 API key),端到端演示见 [examples/paperflow-demo](examples/paperflow-demo/)。
 
 ## 安装
 

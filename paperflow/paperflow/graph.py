@@ -1,5 +1,11 @@
-"""LangGraph 编排:plan → literature → verify → figures → draft → assemble → qa,
-qa 不通过且未超修订上限时走 revise → assemble → qa 循环。
+"""LangGraph 编排(图文并行版):
+
+          ┌─ literature → verify ─┐
+plan ──┤                          ├─ draft → render → qa ─┬─ END
+          └─ figures(按主题生成) ─┘            ↑           └─ revise ─┘
+                                               └────────────┘
+plan 之后文献链与图表链并行执行,draft 等两条分支都完成后汇合;
+qa 不通过且未超修订上限时 revise → render → qa 循环。
 """
 from __future__ import annotations
 
@@ -24,17 +30,19 @@ def build_graph():
     g.add_node("verify", nodes.verify_node)
     g.add_node("figures", nodes.figures_node)
     g.add_node("draft", nodes.draft_node)
-    g.add_node("assemble", nodes.assemble_node)
+    g.add_node("render", nodes.render_node)
     g.add_node("qa", nodes.qa_node)
     g.add_node("revise", nodes.revise_node)
 
     g.add_edge(START, "plan")
+    # 并行分支:文献链与图表链同时跑
     g.add_edge("plan", "literature")
+    g.add_edge("plan", "figures")
     g.add_edge("literature", "verify")
-    g.add_edge("verify", "figures")
-    g.add_edge("figures", "draft")
-    g.add_edge("draft", "assemble")
-    g.add_edge("assemble", "qa")
+    # draft 是汇合点:源节点列表 = 屏障,等 verify 与 figures 都完成才执行
+    g.add_edge(["verify", "figures"], "draft")
+    g.add_edge("draft", "render")
+    g.add_edge("render", "qa")
     g.add_conditional_edges("qa", _route_qa, {"revise": "revise", "done": END, "give_up": END})
-    g.add_edge("revise", "assemble")
+    g.add_edge("revise", "render")
     return g.compile()

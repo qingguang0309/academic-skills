@@ -100,7 +100,7 @@ class FixtureBackend:
 
 
 def make_backend(name: str, workdir: str | Path, model: str | None = None):
-    """按名称构造后端;auto 优先 anthropic(有凭据),其次 claude CLI,最后 fixture。"""
+    """按名称构造后端;auto 优先本机 claude CLI 登录态,其次 fixture,最后 anthropic SDK。"""
     if name == "anthropic":
         return AnthropicBackend(model or DEFAULT_MODEL)
     if name == "claude-cli":
@@ -108,13 +108,18 @@ def make_backend(name: str, workdir: str | Path, model: str | None = None):
     if name == "fixture":
         return FixtureBackend(workdir)
     if name == "auto":
-        if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
-            return AnthropicBackend(model or DEFAULT_MODEL)
+        # 默认优先本机 claude CLI 登录态(每台电脑用自己的 Claude,不依赖 API key)
         if shutil.which("claude"):
-            return ClaudeCLIBackend(model)
+            try:
+                return ClaudeCLIBackend(model)
+            except BackendError:
+                pass
         if (Path(workdir) / "fixtures").is_dir():
             return FixtureBackend(workdir)
+        if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+            return AnthropicBackend(model or DEFAULT_MODEL)
         raise BackendError(
-            "没有可用后端:请设置 ANTHROPIC_API_KEY、安装并登录 claude CLI,或提供 fixtures 目录。"
+            "没有可用后端:请安装并登录 claude CLI(npm i -g @anthropic-ai/claude-code && claude login),"
+            "或提供 fixtures 目录做离线运行。"
         )
     raise BackendError(f"未知后端:{name}")

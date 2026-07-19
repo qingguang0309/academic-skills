@@ -13,16 +13,21 @@ from .graph import build_graph
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="paperflow", description="论文生成流水线(LangGraph 编排)")
+    p = argparse.ArgumentParser(prog="paperflow", description="论文生成流水线(LangGraph 编排,图文并行,LaTeX 标准格式输出)")
     p.add_argument("--config", required=True, help="paper.yaml 配置文件")
     p.add_argument("--backend", default="auto", choices=["auto", "anthropic", "claude-cli", "fixture"])
     p.add_argument("--workdir", default=None, help="工作目录(默认取配置文件所在目录)")
     p.add_argument("--model", default=None, help="覆盖 LLM 模型")
+    p.add_argument("--template", default=None, choices=["article", "pkuthss"],
+                   help="论文模板(默认取配置里的 template,缺省 article)")
     args = p.parse_args(argv)
 
     cfg_path = Path(args.config).resolve()
     cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     cfg["workdir"] = str(Path(args.workdir).resolve() if args.workdir else cfg_path.parent)
+    if args.template:
+        cfg["template"] = args.template
+    cfg.setdefault("template", "article")
 
     try:
         cfg["_backend"] = make_backend(args.backend, cfg["workdir"], args.model)

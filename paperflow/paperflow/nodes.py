@@ -1,9 +1,9 @@
 """LangGraph 节点实现。
 
-写作类节点(plan/literature/draft/revise)调用 LLM 后端;
-核验(verify)、图表(figures)、组装(assemble)、质检(qa)为确定性节点。
-写作规范内嵌自已装 skills 的精华:scientific-writing(IMRAD、整段散文、不用列表)、
-research-paper-writing(论点-证据对齐)、academic-paper(不编造、引用必须来自核验清单)。
+拓扑:plan 之后【文献链 literature→verify】与【图表链 figures】并行,在 draft 汇合;
+draft → render(LaTeX 模板 + 编译)→ qa → (revise → render 循环)。
+写作类节点(plan/literature/draft/revise/figures 的作图代码)调用 LLM 后端;
+verify/render/qa 为确定性节点。所有节点只返回增量日志(state.log 用 reducer 合并)。
 """
 from __future__ import annotations
 
@@ -11,10 +11,12 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from .backends import BackendError
 from .citations import to_bibtex, verify_candidates
+from .renderer import compile_pdf, find_engine, render_article, render_pkuthss
 from .state import PaperState
 
 WRITER_SYSTEM = (
@@ -25,13 +27,25 @@ WRITER_SYSTEM = (
     "limitation explicitly instead of fabricating."
 )
 
+FIGURE_SYSTEM = (
+    "You are a scientific-figure engineer following publication conventions "
+    "(Okabe-Ito colorblind-safe palette, full box frame with inward ticks, "
+    "physical figure sizing in mm, 300+ dpi, no chartjunk). If a local "
+    "'paper-figures' skill is available, follow it. You output a single "
+    "self-contained Python script and nothing else."
+)
+
 
 def _extract_json(text: str) -> dict | list:
-    """从 LLM 输出中提取 JSON(容忍 ```json 围栏与前后杂文)。"""
     m = re.search(r"```(?:json)?\s*(.+?)```", text, re.S)
     raw = m.group(1) if m else text
     start = min([i for i in (raw.find("{"), raw.find("[")) if i >= 0], default=0)
     return json.loads(raw[start:])
+
+
+def _extract_code(text: str) -> str:
+    m = re.search(r"```(?:python)?\s*(.+?)```", text, re.S)
+    return (m.group(1) if m else text).strip()
 
 
 def _workdir(state: PaperState) -> Path:
@@ -55,7 +69,7 @@ def plan_node(state: PaperState) -> dict:
     )
     out = _backend(state).complete("plan", WRITER_SYSTEM, prompt)
     outline = _extract_json(out)
-    return {"outline": outline, "log": state.get("log", []) + [f"[plan] 大纲就绪:{outline.get('title', '')}"]}
+    return {"outline": outline, "log": [f"[plan] 大纲就绪:{outline.get('title', '')}"]}
 
 
 def literature_node(state: PaperState) -> dict:
@@ -69,10 +83,7 @@ def literature_node(state: PaperState) -> dict:
     )
     out = _backend(state).complete("literature", WRITER_SYSTEM, prompt)
     cands = _extract_json(out)
-    return {
-        "candidate_refs": cands,
-        "log": state.get("log", []) + [f"[literature] 候选引用 {len(cands)} 条"],
-    }
+    return {"candidate_refs": cands, "log": [f"[literature] 候选引用 {len(cands)} 条"]}
 
 
 def draft_node(state: PaperState) -> dict:
@@ -95,11 +106,12 @@ def draft_node(state: PaperState) -> dict:
             f"Figures available (reference as 'Figure N'):\n{fig_digest or '(none)'}\n\n"
             f"Study context: {cfg.get('context', '')}\n\n"
             f"Write the {key} section in {cfg.get('words_per_section', 250)}±30% words of "
-            "flowing academic prose. Output the section text only, no heading."
+            "flowing academic prose. Plain text only (no markdown headings/bullets/LaTeX commands); "
+            "output the section text only, no heading."
         )
         sections[key] = _backend(state).complete(f"section_{key}", WRITER_SYSTEM, prompt).strip()
         logs.append(f"[draft] {key}:{len(sections[key].split())} 词")
-    return {"sections": sections, "log": state.get("log", []) + logs}
+    return {"sections": sections, "log": logs}
 
 
 def revise_node(state: PaperState) -> dict:
@@ -116,8 +128,67 @@ def revise_node(state: PaperState) -> dict:
     return {
         "sections": fixed,
         "revision": state.get("revision", 0) + 1,
-        "log": state.get("log", []) + [f"[revise] 第 {state.get('revision', 0) + 1} 轮修订完成"],
+        "log": [f"[revise] 第 {state.get('revision', 0) + 1} 轮修订完成"],
     }
+
+
+# ---------------- 图表链(与文献链并行) ----------------
+
+def figures_node(state: PaperState) -> dict:
+    """与文献/写作并行执行:复制配置指定的现成图,并可按主题生成新图。
+
+    生成路径:LLM(默认本机 claude CLI)产出自包含 matplotlib 脚本 → 本地执行 →
+    脚本按契约把 PNG 写入 figures/ 并输出 figures/manifest.json:
+    [{"file": "xxx.png", "caption": "...", "label": "..."}]
+    """
+    cfg, wd = state["config"], _workdir(state)
+    figdir = wd / "figures"
+    figdir.mkdir(parents=True, exist_ok=True)
+    figures: list[dict] = []
+    logs: list[str] = []
+
+    for i, f in enumerate(cfg.get("figures", [])):
+        src = Path(f["path"])
+        if not src.is_absolute():
+            src = wd / src
+        dst = figdir / src.name
+        if src.resolve() != dst.resolve():
+            shutil.copy(src, dst)
+        figures.append({"path": f"figures/{src.name}", "caption": f["caption"],
+                        "label": f.get("label", f"fig{i+1}")})
+    if figures:
+        logs.append(f"[figures] 复制现成图 {len(figures)} 张")
+
+    if cfg.get("generate_figures"):
+        prompt = (
+            f"Topic: {cfg['topic']}\nCore claim: {cfg.get('claim', '')}\n"
+            f"Context: {cfg.get('context', '')}\n\n"
+            f"Write ONE self-contained Python script that creates {cfg.get('n_generated_figures', 1)} "
+            "publication-quality figure(s) ILLUSTRATING this topic with clearly synthetic example data "
+            "(deterministic: np.random.default_rng(fixed seed)). Constraints:\n"
+            "- imports limited to numpy / scipy / matplotlib (Agg backend, no GUI, no network)\n"
+            "- save each figure as 300-dpi PNG into ./figures/\n"
+            "- finally write ./figures/manifest.json: a JSON list of "
+            '{"file": "name.png", "caption": "...", "label": "slug"} for every figure created\n'
+            "- captions must state the data are illustrative\n"
+            "Output only the Python code."
+        )
+        code = _extract_code(_backend(state).complete("figures_code", FIGURE_SYSTEM, prompt))
+        script = wd / "figures_gen.py"
+        script.write_text(code, encoding="utf-8")
+        r = subprocess.run([sys.executable, str(script)], capture_output=True, text=True,
+                           cwd=wd, timeout=600)
+        if r.returncode != 0:
+            raise BackendError(f"生成图脚本执行失败:\n{(r.stderr or r.stdout)[-800:]}")
+        manifest_path = figdir / "manifest.json"
+        if not manifest_path.is_file():
+            raise BackendError("生成图脚本未按契约写出 figures/manifest.json")
+        for m in json.loads(manifest_path.read_text(encoding="utf-8")):
+            figures.append({"path": f"figures/{m['file']}", "caption": m["caption"],
+                            "label": m.get("label", Path(m["file"]).stem)})
+        logs.append(f"[figures] 按主题生成 {len(json.loads(manifest_path.read_text(encoding='utf-8')))} 张图(脚本已执行)")
+
+    return {"figures": figures, "log": logs or ["[figures] 无图"]}
 
 
 # ---------------- 确定性节点 ----------------
@@ -129,76 +200,36 @@ def verify_node(state: PaperState) -> dict:
     return {
         "bibliography": verified,
         "dropped_refs": dropped,
-        "log": state.get("log", [])
-        + [f"[verify] 通过 {len(verified)} 条,剔除 {len(dropped)} 条"]
-        + [f"  {l}" for l in vlog],
+        "log": [f"[verify] 通过 {len(verified)} 条,剔除 {len(dropped)} 条"] + [f"  {l}" for l in vlog],
     }
 
 
-def figures_node(state: PaperState) -> dict:
-    wd = _workdir(state)
-    figdir = wd / "figures"
-    figdir.mkdir(parents=True, exist_ok=True)
-    figures = []
-    for i, f in enumerate(state["config"].get("figures", [])):
-        src = Path(f["path"])
-        if not src.is_absolute():
-            src = wd / src
-        dst = figdir / src.name
-        if src.resolve() != dst.resolve():
-            shutil.copy(src, dst)
-        figures.append({"path": f"figures/{src.name}", "caption": f["caption"], "label": f.get("label", f"fig{i+1}")})
-    return {"figures": figures, "log": state.get("log", []) + [f"[figures] 纳入 {len(figures)} 张图"]}
+def render_node(state: PaperState) -> dict:
+    """按模板渲染标准论文格式并编译 PDF(article=SCI 投稿格式,pkuthss=北大学位论文)。"""
+    cfg, wd = state["config"], _workdir(state)
+    template = cfg.get("template", "article")
+    (wd / "references.bib").write_text(to_bibtex(state["bibliography"]), encoding="utf-8")
 
+    if template == "pkuthss":
+        pkuthss_dir = Path(cfg.get("pkuthss_dir",
+                           Path.home() / "project/paper-skills-vendor/latex-templates"))
+        tex = render_pkuthss(dict(state), wd, pkuthss_dir)
+    else:
+        tex = render_article(dict(state), wd)
 
-def assemble_node(state: PaperState) -> dict:
-    cfg, outline, wd = state["config"], state["outline"], _workdir(state)
-    bib_path = wd / "references.bib"
-    bib_path.write_text(to_bibtex(state["bibliography"]), encoding="utf-8")
-
-    lines = [
-        "---",
-        f'title: "{outline["title"]}"',
-        f'author: "{cfg.get("author", "paperflow demo")}"',
-        "bibliography: references.bib",
-        "link-citations: true",
-        "---",
-        "",
-    ]
-    if cfg.get("disclaimer"):
-        lines += [f"> {cfg['disclaimer']}", ""]
-    for sec in outline["sections"]:
-        lines += [f"# {sec['key'].replace('_', ' ').title()}", "", state["sections"][sec["key"]], ""]
-        if sec["key"] == cfg.get("figures_after_section"):
-            for i, f in enumerate(state.get("figures", [])):
-                lines += [f"![Figure {i+1}. {f['caption']}]({f['path']}){{#fig:{f['label']}}}", ""]
-    lines += ["# References", ""]
-
-    md = wd / "paper.md"
-    md.write_text("\n".join(lines), encoding="utf-8")
-
-    outputs = [str(md)]
-    pandoc = shutil.which("pandoc")
-    if pandoc:
-        for fmt in ("docx", "tex"):
-            out = wd / f"paper.{fmt}"
-            r = subprocess.run(
-                [pandoc, str(md), "--citeproc", "--standalone",
-                 "--resource-path", str(wd), "-o", str(out)],
-                capture_output=True, text=True, cwd=wd,
-            )
-            if r.returncode == 0:
-                outputs.append(str(out))
-    note = "" if pandoc else "(未装 pandoc,只产出 markdown)"
-    return {
-        "draft_path": str(md),
-        "outputs": outputs,
-        "log": state.get("log", []) + [f"[assemble] 产出 {len(outputs)} 个文件 {note}"],
-    }
+    outputs = [str(tex)]
+    logs = [f"[render] 模板 {template} → {tex.name}"]
+    pdf, log_tail = compile_pdf(tex)
+    if pdf:
+        outputs.append(str(pdf))
+        logs.append(f"[render] PDF 编译成功:{pdf.name}({pdf.stat().st_size // 1024} KB)")
+    else:
+        logs.append(f"[render] PDF 编译失败/无引擎:{log_tail[-300:]}")
+    return {"draft_path": str(tex), "outputs": outputs, "log": logs}
 
 
 def qa_node(state: PaperState) -> dict:
-    """确定性质检:引用键有效、无占位符、章节齐全非空、图表被引用。"""
+    """确定性质检:引用键有效、无占位符、章节齐全、图被引用、PDF 编译成功。"""
     issues = []
     bib_keys = {e["key"] for e in state["bibliography"]}
     all_text = "\n".join(state["sections"].values())
@@ -219,11 +250,11 @@ def qa_node(state: PaperState) -> dict:
     for i, f in enumerate(state.get("figures", [])):
         if f"Figure {i+1}" not in all_text:
             issues.append(f"Figure {i+1}({f['label']})未在正文中被引用")
+    if find_engine() and not any(o.endswith(".pdf") for o in state.get("outputs", [])):
+        issues.append("LaTeX 引擎可用但未产出 PDF(编译失败)")
 
     passed = not issues
     return {
         "qa_report": {"passed": passed, "issues": issues},
-        "log": state.get("log", [])
-        + [f"[qa] {'通过' if passed else f'发现 {len(issues)} 个问题'}"]
-        + [f"  - {i}" for i in issues],
+        "log": [f"[qa] {'通过' if passed else f'发现 {len(issues)} 个问题'}"] + [f"  - {i}" for i in issues],
     }

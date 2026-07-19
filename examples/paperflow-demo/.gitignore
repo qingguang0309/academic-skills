@@ -1,4 +1,5 @@
-# 可再生的组装产物(paper.md 与 run_report.json 保留作为演示证据)
-paper.docx
-paper.tex
+# 可再生的运行产物(paper_article.tex/pdf 与 paper_pkuthss.pdf、run_report.json 保留作为演示证据)
 figures/
+figures_gen.py
+pkuthss_build/
+*.docx
