@@ -1,0 +1,27 @@
+{
+  "title": "Multimodal BSE-EDS Fusion for Micro-phase Identification and Intelligent Characterization of Hydration Degree in Cementitious Materials: A Research Plan",
+  "qa": {
+    "passed": true,
+    "issues": []
+  },
+  "bibliography": [
+    "scrivener2004",
+    "lothenbach2011",
+    "juenger2015",
+    "maes1997",
+    "ronneberger2015",
+    "achanta2012",
+    "long2015"
+  ],
+  "dropped_refs": [
+    {
+      "key": "kipf2017",
+      "reason": "DOI 在 Crossref/Semantic Scholar 均未命中"
+    }
+  ],
+  "outputs": [
+    "/Users/shodan/project/btagent/report/bse-eds-fusion/paper_article.tex",
+    "/Users/shodan/project/btagent/report/bse-eds-fusion/paper_article.pdf"
+  ],
+  "revisions": 0
+}
