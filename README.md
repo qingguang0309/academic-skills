@@ -1,6 +1,8 @@
 # academic-skills
 
-一套面向科研工作者的 Claude 学术技能（Agent Skills）合集：论文绘图、论文润色等，覆盖从数据到投稿的日常环节。目标领域以材料/化学为主（Nature、Science、JACS、Angew、Advanced Materials 等顶刊标准），多数规范对其他实验学科同样适用。
+一套面向科研工作者的 Claude 学术技能（Agent Skills）合集：论文绘图、学术汇报 PPT、论文润色等，覆盖从数据到投稿再到上台汇报的日常环节。目标领域以材料/化学为主（Nature、Science、JACS、Angew、Advanced Materials 等顶刊标准），多数规范对其他实验学科同样适用。
+
+共同方法论：**把质量做成机制，而不是叮嘱**——绘图有几何体检与布局告警，PPT 有组件库与流式布局引擎（模型不手拍坐标），大图有锚点合成引擎，论文流水线有引用真实性核验门；每个 skill 都交付可复现脚本，返修只改声明重跑。
 
 ## Skill 列表
 
@@ -22,10 +24,12 @@
 
 ```bash
 git clone https://github.com/qingguang0309/academic-skills.git
-cp -r academic-skills/skills/paper-figures ~/.claude/skills/
+cp -r academic-skills/skills/paper-figures academic-skills/skills/paper-slides ~/.claude/skills/
 ```
 
 或只装进某个项目：复制到项目的 `.claude/skills/` 下。
+
+运行时依赖：paper-figures 需要 Python + matplotlib；paper-slides 需要 Node.js（生成时 `npm install pptxgenjs`），视觉检查用 LibreOffice + poppler（`soffice`/`pdftoppm`，可选）。
 
 也可以作为插件市场安装：
 
@@ -42,8 +46,18 @@ cp -r academic-skills/skills/paper-figures ~/.claude/skills/
 
 - **数据图一律 Python + matplotlib，矢量输出**——物理尺寸精确、字体可嵌入、完全可复现，这是发表级图片与"屏幕好看"图表的分水岭。
 - **按最终印刷尺寸出图**，字号所见即所得，从根上消灭"图印出来字太小"。
-- **交付脚本而不只是图片**：返修改两行数据即可重跑，同一篇论文所有图风格天然一致。
+- **版式交给组件库,模型只做内容决策**：paper-slides 的 slidekit（页型/字阶/中西文分字体/页码目录）与 paper-figures 的 paperfig/schemfig 同理——手拍坐标是排版粗糙的根源,组件化才能张张一致。
+- **交付脚本而不只是成品**：返修改两行声明即可重跑，同一篇论文的图、同一份汇报的页风格天然一致。
 - **中文讲解**：不只给结果，还讲清每个设计取舍，用一次学一次。
+
+## 示例
+
+| 示例 | 演示内容 |
+|---|---|
+| [paper-figures-demo](examples/paper-figures-demo/) | OER 电催化组图：paper-figures 按期刊栏宽出版级绘图 |
+| [paperflow-demo](examples/paperflow-demo/) | paperflow 端到端：大纲 → 并行文献/图表链 → 引用核验 → LaTeX/PDF |
+| [bse-eds-report](examples/bse-eds-report/) | 真实基金申请书再生成研究计划报告；[slides/](examples/bse-eds-report/slides/) 为 paper-slides 生成的 18 页汇报 PPT |
+| [figflow-demo](examples/figflow-demo/) | figflow 分治出图：BSE–EDS 四阶段架构图（并行面板 + 锚点合成） |
 
 ## 目录结构
 
