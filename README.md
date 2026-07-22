@@ -11,6 +11,8 @@
 
 此外,仓库内置 **[paperflow](paperflow/)** —— 基于 LangGraph 的论文生成流水线:大纲之后**文献链与图表链并行**(按主题现场生成 matplotlib 图),引用经 Crossref/Semantic Scholar 真实性核验(自动剔除编造 DOI),再渲染进**标准 LaTeX 模板**(SCI 单栏投稿格式 / 北京大学 pkuthss 学位论文)并用 tectonic 编译 PDF,QA 不过自动修订。LLM 后端默认走**本机 claude CLI 登录态**(不需要 API key),端到端演示见 [examples/paperflow-demo](examples/paperflow-demo/)。
 
+多面板大图(架构图/技术路线图)另有 **[figflow](figflow/)** 分治出图工作流:面板由并行子代理生成自检,箭头/色带/徽标由确定性排版引擎按锚点合成(模型不手拍大图坐标,连接类缺陷从机制上消除),再经对抗性审图回炉;示例见 [examples/figflow-demo](examples/figflow-demo/)。
+
 ## 安装
 
 ### Claude Code（推荐）
@@ -47,6 +49,7 @@ cp -r academic-skills/skills/paper-figures ~/.claude/skills/
 ```
 academic-skills/
 ├── paperflow/                    # LangGraph 论文生成流水线(引用核验/组装/QA)
+├── figflow/                      # 分治出图工作流(并行面板+确定性排版引擎)
 ├── examples/                     # 端到端演示(paper-figures-demo、paperflow-demo)
 ├── skills/
 │   └── paper-figures/

@@ -1,0 +1,384 @@
+{
+  "canvas_mm": [
+    250,
+    132
+  ],
+  "dpi": 300,
+  "output": "bse_eds_architecture.png",
+  "palette": {
+    "blue": "#2563EB",
+    "blueD": "#1D4ED8",
+    "green": "#059669",
+    "greenD": "#047857",
+    "purple": "#7C3AED",
+    "purpleD": "#6D28D9",
+    "rose": "#DC2626",
+    "roseD": "#991B1B",
+    "amberD": "#92400E",
+    "slate": "#64748B",
+    "csh": "#56B4E9",
+    "clinker": "#E69F00",
+    "scm": "#009E73",
+    "pore": "#2F2F2F"
+  },
+  "bands": [
+    {
+      "id": "b1",
+      "rect": [
+        6,
+        10,
+        58,
+        114
+      ],
+      "label": "① 输入与配准"
+    },
+    {
+      "id": "b2",
+      "rect": [
+        70,
+        10,
+        76,
+        114
+      ],
+      "label": "② 双分支编码"
+    },
+    {
+      "id": "b3",
+      "rect": [
+        152,
+        10,
+        44,
+        114
+      ],
+      "label": "③ 跨模态融合"
+    },
+    {
+      "id": "b4",
+      "rect": [
+        202,
+        10,
+        42,
+        114
+      ],
+      "label": "④ 输出"
+    }
+  ],
+  "panels": [
+    {
+      "id": "bse",
+      "file": "panels/panel_bse.png",
+      "rect": [
+        12,
+        80,
+        40,
+        30
+      ],
+      "title": "BSE 图(稠密 · 高分辨)",
+      "title_size": 10
+    },
+    {
+      "id": "eds",
+      "file": "panels/panel_eds.png",
+      "rect": [
+        12,
+        26,
+        40,
+        30
+      ],
+      "subtitle": "稀疏 EDS 采样(非结构化)",
+      "subtitle_size": 8.5
+    },
+    {
+      "id": "gnn",
+      "file": "panels/panel_gnn.png",
+      "rect": [
+        86,
+        26,
+        44,
+        34
+      ]
+    },
+    {
+      "id": "seg",
+      "file": "panels/panel_seg.png",
+      "rect": [
+        205,
+        83,
+        36,
+        27
+      ],
+      "title": "像素级相分割",
+      "title_size": 10
+    },
+    {
+      "id": "softbar",
+      "file": "panels/panel_softbar.png",
+      "rect": [
+        205,
+        50,
+        36,
+        9
+      ],
+      "title": "单点概率软标签(化学计量约束)",
+      "title_size": 8
+    }
+  ],
+  "items": [
+    {
+      "type": "badge",
+      "id": "reg",
+      "rect": [
+        12,
+        61,
+        40,
+        13
+      ],
+      "fill": "#FDF0F0",
+      "edge": "$rose",
+      "rs": 0.01,
+      "lines": [
+        {
+          "text": "两步配准:刚性 + 形变",
+          "bold": true,
+          "color": "$roseD",
+          "size": 8.8
+        },
+        {
+          "text": "标记点残差 < 1 px",
+          "color": "#7A2E2E",
+          "size": 8.2
+        }
+      ]
+    },
+    {
+      "type": "badge",
+      "id": "cov",
+      "rect": [
+        12,
+        13,
+        40,
+        8
+      ],
+      "fill": "#EAF8F1",
+      "edge": "$green",
+      "rs": 0.008,
+      "lines": [
+        {
+          "text": "EDS 覆盖率 ≤ 5%",
+          "bold": true,
+          "color": "$greenD",
+          "size": 8.4
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "pos": [
+        108,
+        113
+      ],
+      "text": "CNN 稠密分支:多尺度形貌 / 灰度特征",
+      "color": "$blueD",
+      "bold": true,
+      "size": 9.8
+    },
+    {
+      "type": "slabs",
+      "id": "slabs",
+      "rect": [
+        80,
+        86,
+        52,
+        19
+      ],
+      "colors": [
+        "#BFDBFE",
+        "#93C5FD",
+        "#60A5FA",
+        "#3B82F6"
+      ],
+      "edge": "#1E40AF",
+      "n": 4
+    },
+    {
+      "type": "text",
+      "pos": [
+        108,
+        66.5
+      ],
+      "text": "GNN 化学分支:化学梯度约束超像素图",
+      "color": "$greenD",
+      "bold": true,
+      "size": 9.8
+    },
+    {
+      "type": "text",
+      "pos": [
+        108,
+        19.5
+      ],
+      "text": "节点 = 超像素 · EDS 注入白边节点 · 传播补全未采样节点",
+      "color": "#5B6B7F",
+      "size": 7.4
+    },
+    {
+      "type": "text",
+      "pos": [
+        174,
+        103.5
+      ],
+      "text": "多尺度注意力融合",
+      "color": "$purpleD",
+      "bold": true,
+      "size": 10.5
+    },
+    {
+      "type": "text",
+      "pos": [
+        174,
+        97.5
+      ],
+      "text": "跨模态消息传递",
+      "color": "$purpleD",
+      "size": 9
+    },
+    {
+      "type": "heatgrid",
+      "id": "att",
+      "rect": [
+        160,
+        60,
+        28,
+        28
+      ],
+      "color": "$purple",
+      "shape": [
+        6,
+        6
+      ]
+    },
+    {
+      "type": "badge",
+      "id": "iou",
+      "rect": [
+        155,
+        38,
+        38,
+        15
+      ],
+      "fill": "#FFF9EC",
+      "edge": "#D97706",
+      "rs": 0.01,
+      "lines": [
+        {
+          "text": "灰度重叠相 IoU",
+          "bold": true,
+          "color": "$amberD",
+          "size": 8.4
+        },
+        {
+          "text": "较纯 BSE 基线 ↑ ≥ 20 pp",
+          "color": "$amberD",
+          "size": 7.6
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "pos": [
+        223,
+        44
+      ],
+      "text": "→ 相分数 / 水化程度 / 孔隙率",
+      "color": "#37455B",
+      "size": 8.4
+    }
+  ],
+  "arrows": [
+    {
+      "from": "bse.right:0.5",
+      "to": "slabs.left:0.55",
+      "color": "$blue",
+      "rad": 0.18
+    },
+    {
+      "from": "bse.bottom:0.5",
+      "to": "reg.top:0.5",
+      "color": "$slate",
+      "rad": 0.0,
+      "lw": 1.3,
+      "head": 10
+    },
+    {
+      "from": "reg.bottom:0.5",
+      "to": "eds.top:0.5",
+      "color": "$slate",
+      "rad": 0.0,
+      "lw": 1.3,
+      "head": 10
+    },
+    {
+      "from": "eds.right:0.5",
+      "to": "gnn.left:0.55",
+      "color": "$green",
+      "rad": -0.18
+    },
+    {
+      "from": "slabs.right:0.6",
+      "to": "att.left:0.8",
+      "color": "$blue",
+      "rad": 0.22
+    },
+    {
+      "from": "gnn.right:0.6",
+      "to": "att.left:0.2",
+      "color": "$green",
+      "rad": -0.22
+    },
+    {
+      "from": "att.right:0.75",
+      "to": "seg.left:0.5",
+      "color": "$purple",
+      "rad": 0.18
+    },
+    {
+      "from": "att.right:0.25",
+      "to": "softbar.left:0.5",
+      "color": "$purple",
+      "rad": -0.15
+    }
+  ],
+  "legend": {
+    "pos": [
+      10,
+      6.6
+    ],
+    "size": 8.4,
+    "entries": [
+      [
+        "C-(A)-S-H 凝胶",
+        "$csh"
+      ],
+      [
+        "未水化熟料",
+        "$clinker"
+      ],
+      [
+        "SCM 颗粒",
+        "$scm"
+      ],
+      [
+        "孔隙",
+        "$pore"
+      ]
+    ]
+  },
+  "footnote": {
+    "pos": [
+      128,
+      2.9
+    ],
+    "size": 7.8,
+    "text": "注:SCM 颗粒与 C-(A)-S-H 凝胶灰度重叠(0.58 vs 0.52),仅凭 BSE 不可分——绿色化学支路即为补全该信息缺口而设"
+  }
+}
