@@ -7,6 +7,7 @@
 | Skill | 状态 | 说明 |
 |---|---|---|
 | [paper-figures](skills/paper-figures/) | ✅ 可用 | 顶刊标准论文绘图：Python/matplotlib 矢量出图，按期刊栏宽定尺寸，内置 XRD/XPS/Raman/电化学/吸附等温线等图型规范与色盲安全配色；方法示意图/技术路线图同样用 matplotlib（真实感合成 panel + 论文/汇报双风格）。交付可复现脚本 + PDF + PNG |
+| [paper-slides](skills/paper-slides/) | ✅ 可用 | 标准美观的学术汇报 PPT：pptxgenjs + slidekit.js 组件库，模型只组装组件不手拍坐标；中西文混排自动分字体，封面/目录/章节过渡/三线表/页码等中文学术惯例内建，3 套配色主题、中英双语；产出原生可编辑 pptx + 可复现脚本。示例见 [examples/bse-eds-report/slides](examples/bse-eds-report/slides/) |
 | paper-polish | 🚧 计划中 | 顶刊编辑视角论文润色：逐条修改意见 + 中文讲解 + 去 AI 味 |
 
 此外,仓库内置 **[paperflow](paperflow/)** —— 基于 LangGraph 的论文生成流水线:大纲之后**文献链与图表链并行**(按主题现场生成 matplotlib 图),引用经 Crossref/Semantic Scholar 真实性核验(自动剔除编造 DOI),再渲染进**标准 LaTeX 模板**(SCI 单栏投稿格式 / 北京大学 pkuthss 学位论文)并用 tectonic 编译 PDF,QA 不过自动修订。LLM 后端默认走**本机 claude CLI 登录态**(不需要 API key),端到端演示见 [examples/paperflow-demo](examples/paperflow-demo/)。
@@ -50,18 +51,25 @@ cp -r academic-skills/skills/paper-figures ~/.claude/skills/
 academic-skills/
 ├── paperflow/                    # LangGraph 论文生成流水线(引用核验/组装/QA)
 ├── figflow/                      # 分治出图工作流(并行面板+确定性排版引擎)
-├── examples/                     # 端到端演示(paper-figures-demo、paperflow-demo)
+├── examples/                     # 端到端演示(paper-figures-demo、paperflow-demo…)
 ├── skills/
-│   └── paper-figures/
-│       ├── SKILL.md              # 技能主文件（触发条件 + 工作流程）
-│       ├── references/           # 按需加载的规范文档
-│       │   ├── chart-types.md    # 各类表征图型规范（XRD/XPS/电化学/…）
-│       │   ├── journal-specs.md  # 期刊栏宽/字号/DPI/TOC 规格速查
-│       │   ├── color-and-style.md# 配色（Okabe-Ito/viridis）与风格细节
-│       │   └── schematic-figures.md # 方法示意图/技术路线图技法
+│   ├── paper-figures/
+│   │   ├── SKILL.md              # 技能主文件（触发条件 + 工作流程）
+│   │   ├── references/           # 按需加载的规范文档
+│   │   │   ├── chart-types.md    # 各类表征图型规范（XRD/XPS/电化学/…）
+│   │   │   ├── journal-specs.md  # 期刊栏宽/字号/DPI/TOC 规格速查
+│   │   │   ├── color-and-style.md# 配色（Okabe-Ito/viridis）与风格细节
+│   │   │   └── schematic-figures.md # 方法示意图/技术路线图技法
+│   │   └── scripts/
+│   │       ├── paperfig.py       # 数据图统一样式与导出工具（随交付复制给用户）
+│   │       └── schemfig.py       # 示意图组件库（圆角框/曲线箭头/伪3D/双风格）
+│   └── paper-slides/
+│       ├── SKILL.md              # 触发条件 + 三条铁律 + 工作流程
+│       ├── references/
+│       │   ├── design-system.md  # 网格/字阶/主题/中文排版规则
+│       │   └── layouts.md        # 页型版式库与块 API
 │       └── scripts/
-│           ├── paperfig.py       # 数据图统一样式与导出工具（随交付复制给用户）
-│           └── schemfig.py       # 示意图组件库（圆角框/曲线箭头/伪3D/双风格）
+│           └── slidekit.js       # 学术幻灯组件库（随交付复制给用户）
 └── .claude-plugin/
     └── marketplace.json          # Claude Code 插件市场清单
 ```
