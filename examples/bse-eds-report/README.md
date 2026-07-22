@@ -11,3 +11,6 @@ paperflow 在真实项目材料上的完整链路:
 
 复现:`PYTHONPATH=. python -m paperflow --config ../examples/bse-eds-report/paper.yaml --backend fixture`
 (申请书原件不在仓库内;全文以 targets 表述,figures 为 illustrative synthetic data。)
+
+另附 [slides/](slides/):用 academic-pptx + 官方 pptx skill 从本报告再生成的 11 页开放基金
+汇报 PPT(action-title 结构,含可复现脚本)。
