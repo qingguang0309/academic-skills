@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* —— Claude 风格设计令牌:米白纸感、赭色点缀、衬线标题 —— */
+@theme {
+  --color-paper: #faf9f5;      /* 页面底色 */
+  --color-panel: #ffffff;      /* 卡片 */
+  --color-panel2: #f4f2ec;     /* 次级面板/悬停 */
+  --color-ink: #29261f;        /* 主文字 */
+  --color-ink2: #6b675e;       /* 次文字 */
+  --color-faint: #a39e92;      /* 弱文字 */
+  --color-line: #e8e5dd;       /* 细线 */
+  --color-clay: #d97757;       /* 赭 —— 主强调 */
+  --color-clay-deep: #b05730;
+  --color-clay-wash: #f7ebe4;
+  --color-moss: #6a815c;       /* 成功 */
+  --color-moss-wash: #eef2ea;
+  --color-gold: #c9a227;
+  --color-rust: #b3452f;       /* 失败 */
+  --color-rust-wash: #f7e9e5;
+
+  --font-display: Georgia, "Times New Roman", "Songti SC", "STSong", "SimSun", serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html { background: var(--color-paper); }
+body {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.font-display { font-family: var(--font-display); letter-spacing: 0.01em; }
+
+/* 细腻滚动条 */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--color-faint); }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* 日志终端 */
+.console {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 页面淡入 */
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise .35s cubic-bezier(.21,.6,.35,1) both; }
+
+/* 运行中的呼吸点 */
+@keyframes breathe { 0%,100% { opacity: .35 } 50% { opacity: 1 } }
+.breathe { animation: breathe 1.6s ease-in-out infinite; }

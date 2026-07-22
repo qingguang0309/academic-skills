@@ -42,6 +42,16 @@ cp -r academic-skills/skills/paper-figures academic-skills/skills/paper-slides ~
 
 在 Settings → Capabilities 中上传 skill 文件夹（或打包的 `.skill` 文件）。
 
+## 本地工作台（web/）
+
+仓库自带一个 Claude 风格的本地工作台：概览统计、示例任务一键运行（实时日志与进度）、产物资源库（点击预览 PNG/PDF/PPTX）、技能管理（安装/更新到 `~/.claude/skills`、在线阅读技能文档）。
+
+```bash
+cd web && npm install && npm run dev   # → http://localhost:3620
+```
+
+详见 [web/README.md](web/README.md)。
+
 ## 设计理念
 
 - **数据图一律 Python + matplotlib，矢量输出**——物理尺寸精确、字体可嵌入、完全可复现，这是发表级图片与"屏幕好看"图表的分水岭。
@@ -66,6 +76,7 @@ academic-skills/
 ├── paperflow/                    # LangGraph 论文生成流水线(引用核验/组装/QA)
 ├── figflow/                      # 分治出图工作流(并行面板+确定性排版引擎)
 ├── examples/                     # 端到端演示(paper-figures-demo、paperflow-demo…)
+├── web/                          # 本地工作台(Next.js:运行/资源预览/技能管理)
 ├── skills/
 │   ├── paper-figures/
 │   │   ├── SKILL.md              # 技能主文件（触发条件 + 工作流程）
