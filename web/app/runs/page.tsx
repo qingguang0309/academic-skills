@@ -105,7 +105,7 @@ function RunsInner() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        <div className="xl:col-span-2">
+        <div className="xl:col-span-2 order-2 xl:order-1">
           <h2 className="font-display text-[18px] mb-3">运行记录</h2>
           <Card className="divide-y divide-line max-h-[420px] overflow-y-auto">
             {runs.length === 0 && <div className="px-5 py-8 text-center text-[12.5px] text-faint">暂无记录</div>}
@@ -123,7 +123,7 @@ function RunsInner() {
           </Card>
         </div>
 
-        <div className="xl:col-span-3">
+        <div className="xl:col-span-3 order-1 xl:order-2">
           <h2 className="font-display text-[18px] mb-3">日志与产物</h2>
           {!open && (
             <Card className="px-6 py-14 text-center text-[13px] text-faint">

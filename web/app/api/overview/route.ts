@@ -19,6 +19,6 @@ export async function GET() {
       artifacts: artifacts.length,
       installed: skills.filter((s) => s.installed).length,
     },
-    latest: artifacts.slice(0, 8),
+    latest: artifacts.filter((a) => a.tier === "final" && a.previewable === "image").slice(0, 8),
   });
 }

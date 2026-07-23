@@ -47,7 +47,10 @@ export default function Home() {
         ))}
       </div>
 
-      <h2 className="font-display text-[18px] mb-3">技能</h2>
+      <div className="flex items-baseline gap-3 mb-3">
+        <h2 className="font-display text-[18px]">技能与工作流</h2>
+        <span className="text-[11.5px] text-faint">{data.skills.length} 个技能 · {data.workflows.length} 条流水线</span>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
         {data.skills.map((s) => (
           <Card key={s.name} className="p-5 flex flex-col">
