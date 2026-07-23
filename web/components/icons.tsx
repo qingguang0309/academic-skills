@@ -14,15 +14,21 @@ function Svg({ children, size = 16, className = "" }: {
   );
 }
 
-/** Claude 式放射星标 —— 工作台标识 */
+/** Claude 式放射星标 —— 工作台标识
+ * 坐标取整到两位小数:SSR 与客户端浮点序列化在末位可能不同,会触发水合告警 */
 export function Logo({ size = 26, className = "" }: { size?: number; className?: string }) {
+  const f = (n: number) => Math.round(n * 100) / 100;
   const rays: React.ReactNode[] = [];
   for (let i = 0; i < 12; i++) {
     const a = (i * Math.PI) / 6;
     const r0 = i % 3 === 0 ? 3.2 : 5.2;
-    const x1 = 12 + Math.cos(a) * r0, y1 = 12 + Math.sin(a) * r0;
-    const x2 = 12 + Math.cos(a) * 10.2, y2 = 12 + Math.sin(a) * 10.2;
-    rays.push(<line key={i} x1={x1} y1={y1} x2={x2} y2={y2} />);
+    rays.push(
+      <line
+        key={i}
+        x1={f(12 + Math.cos(a) * r0)} y1={f(12 + Math.sin(a) * r0)}
+        x2={f(12 + Math.cos(a) * 10.2)} y2={f(12 + Math.sin(a) * 10.2)}
+      />
+    );
   }
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -102,6 +108,33 @@ export function IconDownload({ size = 14, className }: { size?: number; classNam
     <Svg size={size} className={className}>
       <path d="M12 4v11M7.5 11l4.5 4.5L16.5 11" />
       <path d="M4.5 19.5h15" />
+    </Svg>
+  );
+}
+
+export function IconMenu({ size = 18, className }: { size?: number; className?: string }) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M4 6.5h16M4 12h16M4 17.5h16" />
+    </Svg>
+  );
+}
+
+export function IconX({ size = 16, className }: { size?: number; className?: string }) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </Svg>
+  );
+}
+
+/** 侧栏开合:面板 + 方向线 */
+export function IconPanel({ size = 16, className, flip }: { size?: number; className?: string; flip?: boolean }) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M9.5 4.5v15" />
+      {flip ? <path d="M13 9.5l2.5 2.5-2.5 2.5" /> : <path d="M16.5 9.5L14 12l2.5 2.5" />}
     </Svg>
   );
 }

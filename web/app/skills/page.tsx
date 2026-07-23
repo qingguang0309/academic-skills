@@ -43,7 +43,7 @@ export default function SkillsPage() {
   };
 
   return (
-    <div className="px-10 py-9 max-w-6xl rise">
+    <div className="px-5 py-6 md:px-10 md:py-9 max-w-6xl rise">
       <PageHead
         kicker="SKILLS"
         title="技能管理"
@@ -56,7 +56,7 @@ export default function SkillsPage() {
       <div className="space-y-4 mb-10">
         {skills.map((s) => (
           <Card key={s.name} className="p-6">
-            <div className="flex items-start gap-6">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-1.5">
                   <span className="font-display text-[18px]">{s.name}</span>
@@ -86,7 +86,7 @@ export default function SkillsPage() {
                   ))}
                 </div>
               </div>
-              <div className="shrink-0 flex flex-col gap-2 w-36">
+              <div className="sm:shrink-0 flex flex-row sm:flex-col gap-2 w-full sm:w-36">
                 <Btn tone="primary" small disabled={busy === s.name} onClick={() => act("install", s.name)}>
                   {busy === s.name ? "处理中…" : s.installed ? (s.updatable ? "更新" : "重新安装") : "安装"}
                 </Btn>
@@ -105,7 +105,7 @@ export default function SkillsPage() {
       <p className="text-[12.5px] text-ink2 mb-4 max-w-2xl">
         paperflow 与 figflow 不是 Agent Skill,而是随仓库分发的流水线/引擎,直接在仓库目录内运行;可在运行中心体验端到端示例。
       </p>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {workflows.map((w) => (
           <Card key={w.name} className="p-5">
             <div className="font-semibold text-[14.5px] mb-1.5">{w.name}/</div>

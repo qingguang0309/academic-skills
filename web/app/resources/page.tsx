@@ -34,13 +34,13 @@ function ResourcesInner() {
   const fileUrl = (rel: string) => `/api/file?path=${encodeURIComponent(rel)}`;
 
   return (
-    <div className="px-10 py-9 max-w-6xl rise">
+    <div className="px-5 py-6 md:px-10 md:py-9 max-w-6xl rise">
       <PageHead
         kicker="RESOURCES"
         title="资源库"
         sub="examples 目录下的全部产物:图、PDF、演示文稿。点击卡片预览,PPTX 通过同名 PDF 预览、原文件可下载。"
         right={
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {groups.map((g) => (
               <button
                 key={g}
@@ -57,7 +57,7 @@ function ResourcesInner() {
         }
       />
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
         {shown.map((a) => (
           <Card key={a.rel} onClick={() => setFocus(a)} className="overflow-hidden">
             <div className="aspect-[4/3] bg-panel2 grid place-items-center overflow-hidden">

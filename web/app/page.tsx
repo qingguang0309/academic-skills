@@ -31,14 +31,14 @@ export default function Home() {
   ];
 
   return (
-    <div className="px-10 py-9 max-w-6xl rise">
+    <div className="px-5 py-6 md:px-10 md:py-9 max-w-6xl rise">
       <PageHead
         kicker="ACADEMIC SKILLS"
         title="从数据到投稿,再到上台汇报"
         sub="论文绘图、学术汇报 PPT、论文流水线与多面板大图——每一环都把质量做成机制:组件库、布局引擎、锚点合成与引用核验门。"
       />
 
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
         {stat.map((s) => (
           <Card key={s.label} className="px-5 py-4">
             <div className="font-display text-[30px] text-clay-deep leading-none">{s.v}</div>
@@ -48,7 +48,7 @@ export default function Home() {
       </div>
 
       <h2 className="font-display text-[18px] mb-3">技能</h2>
-      <div className="grid grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
         {data.skills.map((s) => (
           <Card key={s.name} className="p-5 flex flex-col">
             <div className="flex items-center justify-between mb-2">
@@ -90,13 +90,13 @@ export default function Home() {
         ))}
       </div>
 
-      <div className="grid grid-cols-5 gap-6">
-        <div className="col-span-3">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+        <div className="xl:col-span-3">
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="font-display text-[18px]">最新产物</h2>
             <Link href="/resources" className="text-[12.5px] text-clay-deep hover:underline">全部资源 →</Link>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {data.latest.filter((a) => a.previewable === "image").slice(0, 8).map((a) => (
               <Link key={a.rel} href={`/resources?focus=${encodeURIComponent(a.rel)}`}>
                 <Card className="overflow-hidden">
@@ -113,7 +113,7 @@ export default function Home() {
             ))}
           </div>
         </div>
-        <div className="col-span-2">
+        <div className="xl:col-span-2">
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="font-display text-[18px]">最近运行</h2>
             <Link href="/runs" className="text-[12.5px] text-clay-deep hover:underline">运行中心 →</Link>

@@ -5,7 +5,7 @@ export function PageHead({ kicker, title, sub, right }: {
   kicker?: string; title: string; sub?: string; right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-end justify-between gap-6 mb-7">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6 mb-6 md:mb-7">
       <div>
         {kicker && (
           <div className="flex items-center gap-2 mb-2">
@@ -13,10 +13,10 @@ export function PageHead({ kicker, title, sub, right }: {
             <span className="text-[12px] tracking-widest text-clay-deep font-medium">{kicker}</span>
           </div>
         )}
-        <h1 className="font-display text-[26px] leading-snug">{title}</h1>
+        <h1 className="font-display text-[22px] md:text-[26px] leading-snug">{title}</h1>
         {sub && <p className="text-[13.5px] text-ink2 mt-1.5 max-w-2xl leading-relaxed">{sub}</p>}
       </div>
-      {right && <div className="shrink-0">{right}</div>}
+      {right && <div className="sm:shrink-0">{right}</div>}
     </div>
   );
 }
