@@ -11,7 +11,7 @@
     {
       "name": "academic-skills",
       "source": "./",
-      "description": "论文绘图（paper-figures）、学术汇报 PPT（paper-slides）等学术技能合集：材料/化学顶刊标准",
+      "description": "论文绘图（paper-figures）、学术汇报 PPT（paper-slides）、论文润色（paper-polish）等学术技能合集：材料/化学顶刊标准",
       "strict": false
     }
   ]
