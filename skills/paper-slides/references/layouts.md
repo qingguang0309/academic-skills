@@ -98,6 +98,15 @@ d.page({
 
 ## 素材准备
 
-- 图优先用 paper-figures skill 现场生成(带标注、配色与 deck 主题呼应);已有图直接引用。
+- 数据图优先用 paper-figures skill 现场生成(带标注、配色与 deck 主题呼应);已有图直接引用。
+- **真实网络图**:`python3 fetchimg.py "<英文关键词>" -n 3 -o assets/web -t <前缀>`,只回 CC0/公有领域/CC-BY/CC-BY-SA;逐张 Read 挑选;figure 块自动从 `assets/web/credits.json` 落署名(显式 `credit` 覆盖之)。适合背景/应用场景/材料结构/仪器实物页;不适合封面与结论页。
 - 从 PDF 抽图:`pdfimages -png -f <页> -l <页> paper.pdf assets/fig`。
 - 校徽/logo:用户提供时放封面信息区右侧,自行加 addImage 之外的需求提给 slidekit 维护者,不要在生成脚本里手摆。
+
+```js
+// 实景图 + 要点的标准配方(动机/应用页)
+{ type: "cols", ratio: [2, 3], cols: [
+    { blocks: [{ type: "figure", path: "assets/web/plant_1.jpg", maxH: 3.0 }] },  // 署名自动
+    { blocks: [{ type: "bullets", items: [ … ] }] },
+  ] }
+```

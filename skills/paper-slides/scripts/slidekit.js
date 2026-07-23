@@ -459,10 +459,12 @@ class Deck {
     }
     if (t === "figure") {
       const dim = imgSize(b.path);
-      const capH = b.caption ? textH(b.caption, T.caption, w) + 0.12 : 0;
+      const credit = figureCredit(b);
+      const capLine = b.caption || credit ? true : false;
+      const capH = capLine ? textH((b.caption || "") + (credit || ""), T.caption, w) + 0.12 : 0;
       const maxH = (b.maxH || 4.6) * sc;
       const fit = fitRect(dim.w, dim.h, b.maxW || w, maxH - capH);
-      return { h: fit.h + capH + 0.06, fit, capH };
+      return { h: fit.h + capH + 0.06, fit, capH, credit };
     }
     if (t === "table") {
       const rows = b.rows.length + 1;
@@ -555,15 +557,20 @@ class Deck {
           valign: "top", lineSpacingMultiple: 1.22 });
       });
     } else if (t === "figure") {
-      const { fit, capH } = mz;
+      const { fit, capH, credit } = mz;
       const x = box.x + (box.w - fit.w) / 2;
       if (b.frame !== false) s.addShape(this.pres.shapes.RECTANGLE, {
         x: x - 0.04, y: box.y - 0.04, w: fit.w + 0.08, h: fit.h + 0.08,
         fill: { color: "FFFFFF" }, line: { color: th.line, width: 1 } });
       s.addImage({ path: b.path, x, y: box.y, w: fit.w, h: fit.h });
-      if (b.caption) {
-        this.figN += 1;
-        const cap = `${this.L.fig} ${this.figN}  ${b.caption}` + (b.credit ? `(${b.credit})` : "");
+      if (b.caption || credit) {
+        let cap;
+        if (b.caption) {
+          this.figN += 1;
+          cap = `${this.L.fig} ${this.figN}  ${b.caption}` + (credit ? `(${credit})` : "");
+        } else {
+          cap = credit; // 无图注的网络实景图:仍必须落署名行
+        }
         s.addText(this.runs(cap, { fontSize: T.caption, color: th.muted }), {
           x: box.x, y: box.y + fit.h + 0.1, w: box.w, h: capH, margin: 0, align: "center" });
       }
@@ -688,6 +695,27 @@ class Deck {
       x: M, y: 5.7, w: CW, h: 0.36, margin: 0 });
     if (a.notes) s.addNotes(a.notes);
   }
+}
+
+// ---------- 网络图自动署名:读图片同目录 credits.json(fetchimg.py 生成) ----------
+// 显式传 credit 优先;否则命中 credits.json 就自动生成"作者 / 许可 · 来源"。
+// 机制保证:fetchimg 拉的图,署名永远不会漏。
+const creditsCache = new Map();
+function figureCredit(b) {
+  if (b.credit !== undefined) return b.credit || "";
+  const dir = path.dirname(b.path);
+  if (!creditsCache.has(dir)) {
+    const p = path.join(dir, "credits.json");
+    let data = null;
+    try { data = JSON.parse(fs.readFileSync(p, "utf8")); } catch { /* 无登记文件 */ }
+    creditsCache.set(dir, data);
+  }
+  const reg = creditsCache.get(dir);
+  const hit = reg && reg[path.basename(b.path)];
+  if (!hit) return "";
+  const src = hit.provider === "wikimedia" ? "Wikimedia Commons" : (hit.provider || "");
+  const creator = hit.creator && hit.creator !== "unknown" ? hit.creator : "";
+  return [creator, hit.license, src].filter(Boolean).join(" / ");
 }
 
 // ---------- 图片尺寸读取(PNG/JPEG,防变形) ----------
