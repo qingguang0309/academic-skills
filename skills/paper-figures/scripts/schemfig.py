@@ -332,15 +332,21 @@ def arrow(fig, p1, p2, color, rad=0.0, lw=2.0, zorder=2, avoid=True,
                   f"{blocked}(export 体检会拦截,请改布局或路径)")
         elif abs(used - rad) > 1e-9:
             print(f"[schemfig] 箭头 {label or ''} rad {rad:+.2f} -> {used:+.2f} 以绕开障碍物")
+    # 短箭头自适应缩头:头长(≈0.4*mutation_scale)不得超过全长的一半,否则
+    # FancyArrowPatch 会退化成一个不挨两端的悬浮三角(历史顽疾之三)。
+    d_pt = float(np.hypot(*(np.asarray(fig.transFigure.transform(p2), float)
+                            - fig.transFigure.transform(p1)))) / fig.dpi * 72.0
+    ms = float(np.clip(1.25 * d_pt, 6.0, 15.0))
+    lw_used = min(lw, 0.28 * ms)          # 短箭头同时收线宽,避免头比杆细
     a = FancyArrowPatch(p1, p2, transform=fig.transFigure,
                         connectionstyle=f"arc3,rad={used}", arrowstyle="-|>",
-                        mutation_scale=15, lw=lw, color=color,
+                        mutation_scale=ms, lw=lw_used, color=color,
                         shrinkA=0, shrinkB=0, zorder=zorder, capstyle="round")
     fig.add_artist(a)
     if hasattr(fig, "_schem_arrows"):
         fig._schem_arrows.append(dict(p1=tuple(p1), p2=tuple(p2), rad=used,
                                       ignore={id(e) for e in ignore},
-                                      label=label))
+                                      label=label, d_pt=d_pt))
     return a
 
 
@@ -348,6 +354,15 @@ def connect(fig, a, b, color, rad=0.0, side_a="auto", side_b="auto",
             gap=0.006, **kw):
     """框到框连线：自动取双方框沿锚点（起止点保证在框外），再走 arrow 避障。
     连内容框**一律用这个**，不要手拍箭头起止坐标。"""
+    # 短距连线自动收边距:两框间隙不足 18pt 时,固定 gap 会吃掉大半空间,
+    # 箭头只剩个头。按裸间距缩 gap,把空间留给箭头本体。
+    if isinstance(a, El) and isinstance(b, El):
+        p0a = a.anchor(side_a, other=b, gap=0.0)
+        p0b = b.anchor(side_b, other=a, gap=0.0)
+        d0_pt = float(np.hypot(*(np.asarray(fig.transFigure.transform(p0b), float)
+                                 - fig.transFigure.transform(p0a)))) / fig.dpi * 72.0
+        if d0_pt < 18.0:
+            gap = gap * max(0.25, d0_pt / 36.0)
     pa = a.anchor(side_a, other=b, gap=gap) if isinstance(a, El) else tuple(a)
     pb = b.anchor(side_b, other=a, gap=gap) if isinstance(b, El) else tuple(b)
     ign = [e for e in (a, b) if isinstance(e, El)] + list(kw.pop("ignore", ()))
@@ -371,6 +386,9 @@ def check(fig) -> list[str]:
                 texts.append((s, (b.x0 - 1, b.y0 - 1, b.x1 + 1, b.y1 + 1)))
     for rec in getattr(fig, "_schem_arrows", []):
         p1, p2, rad = rec["p1"], rec["p2"], rec["rad"]
+        if rec.get("d_pt", 99.0) < 5.0:
+            issues.append(f"箭头过短(全长 {rec['d_pt']:.1f}pt < 5pt),已退化: "
+                          f"{rec['label'] or p1} —— 请拉开两元素间距或减小 connect gap")
         obs = [el for el in getattr(fig, "_schem_obstacles", [])
                if id(el) not in rec["ignore"]
                and not el.contains(p1) and not el.contains(p2)]
