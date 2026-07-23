@@ -1,25 +1,26 @@
 @import "tailwindcss";
 
-/* —— Claude 风格设计令牌:米白纸感、赭色点缀、衬线标题 —— */
+/* —— Claude / Anthropic 设计令牌:象牙白、碳黑、赭;Tiempos/Styrene 系字体 —— */
 @theme {
-  --color-paper: #faf9f5;      /* 页面底色 */
-  --color-panel: #ffffff;      /* 卡片 */
-  --color-panel2: #f4f2ec;     /* 次级面板/悬停 */
-  --color-ink: #29261f;        /* 主文字 */
-  --color-ink2: #6b675e;       /* 次文字 */
-  --color-faint: #a39e92;      /* 弱文字 */
-  --color-line: #e8e5dd;       /* 细线 */
+  --color-paper: #f0eee6;      /* 侧栏/深一档象牙 (ivory medium) */
+  --color-page: #faf9f5;       /* 主内容底 (ivory light) */
+  --color-panel: #fdfcfa;      /* 卡片 */
+  --color-panel2: #f0eee6;     /* 次级面板/悬停 */
+  --color-ink: #141413;        /* 主文字 (carbon) */
+  --color-ink2: #61605b;       /* 次文字 (slate) */
+  --color-faint: #a29e93;      /* 弱文字 */
+  --color-line: #e3dfd3;       /* 细线 */
   --color-clay: #d97757;       /* 赭 —— 主强调 */
-  --color-clay-deep: #b05730;
-  --color-clay-wash: #f7ebe4;
+  --color-clay-deep: #b4552d;
+  --color-clay-wash: #f4e5dd;
   --color-moss: #6a815c;       /* 成功 */
-  --color-moss-wash: #eef2ea;
+  --color-moss-wash: #ecefe6;
   --color-gold: #c9a227;
   --color-rust: #b3452f;       /* 失败 */
-  --color-rust-wash: #f7e9e5;
+  --color-rust-wash: #f5e6e0;
 
-  --font-display: Georgia, "Times New Roman", "Songti SC", "STSong", "SimSun", serif;
-  --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --font-display: var(--gf-serif), Georgia, "Songti SC", "STSong", "SimSun", serif;
+  --font-body: var(--gf-sans), -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -29,9 +30,10 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01";
 }
 
-.font-display { font-family: var(--font-display); letter-spacing: 0.01em; }
+.font-display { font-family: var(--font-display); letter-spacing: 0.005em; }
 
 /* 细腻滚动条 */
 *::-webkit-scrollbar { width: 8px; height: 8px; }

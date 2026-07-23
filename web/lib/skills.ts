@@ -58,8 +58,8 @@ export function listSkills(): SkillInfo[] {
         name: fm.name || e.name,
         description: fm.description || "",
         files: walk(dir).length,
-        scripts: exists(scriptsDir) ? fs.readdirSync(scriptsDir) : [],
-        references: exists(refsDir) ? fs.readdirSync(refsDir) : [],
+        scripts: exists(scriptsDir) ? fs.readdirSync(scriptsDir).filter((f) => !f.startsWith("_") && !f.startsWith(".")) : [],
+        references: exists(refsDir) ? fs.readdirSync(refsDir).filter((f) => !f.startsWith(".")) : [],
         installed,
         updatable: installed && newestMtime(dir) > newestMtime(installedDir) + 1000,
       };

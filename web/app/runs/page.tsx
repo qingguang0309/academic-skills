@@ -2,6 +2,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, Badge, Btn, PageHead, fmtTime, fmtDur } from "@/components/ui";
+import { IconPlay } from "@/components/icons";
 
 type Task = { id: string; title: string; tool: string; desc: string; script: string; hint?: string; produces: string[] };
 type RunMeta = { id: string; taskId: string; title: string; status: "running" | "success" | "failed"; startedAt: number; endedAt?: number };
@@ -91,7 +92,10 @@ function RunsInner() {
               {t.hint && <p className="text-[11.5px] text-faint mb-3">依赖:{t.hint}</p>}
               <div className="flex items-center gap-3">
                 <Btn tone="primary" small disabled={running} onClick={() => start(t.id)}>
-                  {running ? "运行中…" : "▸ 运行"}
+                  <span className="inline-flex items-center gap-1.5">
+                    <IconPlay size={11} />
+                    {running ? "运行中…" : "运行"}
+                  </span>
                 </Btn>
                 <code className="text-[11px] text-faint truncate flex-1">{t.script.split("&&")[0].trim()} …</code>
               </div>

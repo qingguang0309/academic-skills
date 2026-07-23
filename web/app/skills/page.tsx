@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { Card, Badge, Btn, Modal, PageHead, Md } from "@/components/ui";
+import { IconDoc, IconGear } from "@/components/icons";
 
 type Skill = {
   name: string; description: string; files: number;
@@ -69,17 +70,19 @@ export default function SkillsPage() {
                 <p className="text-[13px] text-ink2 leading-relaxed mb-3">{s.description}</p>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <button onClick={() => openDoc(s.name, "SKILL.md")}
-                    className="rounded-lg bg-panel2 px-2.5 py-1 text-[11.5px] font-medium hover:bg-clay-wash hover:text-clay-deep transition-colors">
-                    SKILL.md
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-panel2 px-2.5 py-1 text-[11.5px] font-medium hover:bg-clay-wash hover:text-clay-deep transition-colors">
+                    <IconDoc size={12} /> SKILL.md
                   </button>
                   {s.references.map((f) => (
                     <button key={f} onClick={() => openDoc(s.name, `references/${f}`)}
-                      className="rounded-lg bg-panel2 px-2.5 py-1 text-[11.5px] text-ink2 hover:bg-clay-wash hover:text-clay-deep transition-colors">
-                      {f}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-panel2 px-2.5 py-1 text-[11.5px] text-ink2 hover:bg-clay-wash hover:text-clay-deep transition-colors">
+                      <IconDoc size={12} /> {f}
                     </button>
                   ))}
                   {s.scripts.map((f) => (
-                    <span key={f} className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-faint">⚙ {f}</span>
+                    <span key={f} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-faint">
+                      <IconGear size={11} /> {f}
+                    </span>
                   ))}
                 </div>
               </div>

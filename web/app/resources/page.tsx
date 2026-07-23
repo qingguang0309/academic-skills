@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, Badge, Modal, PageHead, fmtSize, fmtTime } from "@/components/ui";
+import { IconDoc, IconDownload, IconResources } from "@/components/icons";
 
 type Artifact = {
   rel: string; name: string; group: string; ext: string;
@@ -64,14 +65,14 @@ function ResourcesInner() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={fileUrl(a.rel)} alt={a.name} loading="lazy" className="h-full w-full object-cover" />
               ) : a.previewable === "pdf" || a.sibling ? (
-                <div className="text-center">
-                  <div className="font-display text-[26px] text-clay-deep">A4</div>
-                  <div className="text-[11px] text-faint mt-1">{EXT_LABEL[a.ext]} 文档</div>
+                <div className="text-center text-clay-deep">
+                  <IconDoc size={30} className="mx-auto" />
+                  <div className="text-[11px] text-faint mt-2">{EXT_LABEL[a.ext]} 文档</div>
                 </div>
               ) : (
-                <div className="text-center">
-                  <div className="font-display text-[26px] text-clay-deep">16:9</div>
-                  <div className="text-[11px] text-faint mt-1">演示文稿</div>
+                <div className="text-center text-clay-deep">
+                  <IconResources size={30} className="mx-auto" />
+                  <div className="text-[11px] text-faint mt-2">演示文稿</div>
                 </div>
               )}
             </div>
@@ -94,10 +95,10 @@ function ResourcesInner() {
               <span className="font-medium text-[14px] truncate">{focus.name}</span>
               <span className="text-[11.5px] text-faint truncate flex-1">{focus.rel}</span>
               <a
-                className="text-[12.5px] font-medium text-clay-deep hover:underline"
+                className="inline-flex items-center gap-1 text-[12.5px] font-medium text-clay-deep hover:underline"
                 href={`${fileUrl(focus.rel)}&dl=1`}
               >
-                下载
+                <IconDownload size={13} /> 下载
               </a>
               {focus.sibling && (
                 <span className="text-[11.5px] text-faint">(预览为同名 PDF)</span>

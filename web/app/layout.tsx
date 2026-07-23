@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
+import { Archivo, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { Nav } from "./nav";
+import { Logo } from "@/components/icons";
+
+// Claude 系字体近似:Tiempos → Source Serif 4,Styrene → Archivo(构建时下载自托管)
+const serif = Source_Serif_4({ subsets: ["latin"], variable: "--gf-serif", display: "swap" });
+const sans = Archivo({ subsets: ["latin"], variable: "--gf-sans", display: "swap" });
 
 export const metadata: Metadata = {
   title: "academic-skills 工作台",
@@ -9,17 +15,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" className={`${serif.variable} ${sans.variable}`}>
       <body className="min-h-screen">
         <div className="flex min-h-screen">
           <aside className="w-60 shrink-0 border-r border-line bg-paper sticky top-0 h-screen flex flex-col">
             <div className="px-5 pt-6 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-xl bg-clay text-white grid place-items-center font-display text-[15px] leading-none select-none">
-                  学
-                </div>
+                <Logo size={30} className="text-clay shrink-0" />
                 <div>
-                  <div className="font-display text-[15px] leading-tight">academic-skills</div>
+                  <div className="font-display text-[15px] leading-tight tracking-tight">academic-skills</div>
                   <div className="text-[11px] text-faint leading-tight mt-0.5">科研技能工作台</div>
                 </div>
               </div>
@@ -27,13 +31,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Nav />
             <div className="mt-auto px-5 py-4 border-t border-line">
               <p className="text-[11px] text-faint leading-relaxed">
-                从数据到投稿再到上台汇报
+                从数据到投稿,再到上台汇报
                 <br />
                 质量做成机制,而非叮嘱
               </p>
             </div>
           </aside>
-          <main className="flex-1 min-w-0">{children}</main>
+          <main className="flex-1 min-w-0 bg-page">{children}</main>
         </div>
       </body>
     </html>
