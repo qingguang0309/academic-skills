@@ -9,7 +9,7 @@
 | Skill | 状态 | 说明 |
 |---|---|---|
 | [paper-figures](skills/paper-figures/) | ✅ 可用 | 顶刊标准论文绘图：Python/matplotlib 矢量出图，按期刊栏宽定尺寸，内置 XRD/XPS/Raman/电化学/吸附等温线等图型规范与色盲安全配色；方法示意图/技术路线图同样用 matplotlib（真实感合成 panel + 论文/汇报双风格）。交付可复现脚本 + PDF + PNG |
-| [paper-slides](skills/paper-slides/) | ✅ 可用 | 标准美观的学术汇报 PPT：pptxgenjs + slidekit.js 组件库，模型只组装组件不手拍坐标；中西文混排自动分字体，封面/目录/章节过渡/三线表/页码等中文学术惯例内建，3 套配色主题、中英双语；fetchimg 按题目拉取 CC 许可真实网络配图（格式嗅探/转码/压缩），署名由 credits.json 机制自动落页。产出原生可编辑 pptx + 可复现脚本。示例见 [examples/bse-eds-report/slides](examples/bse-eds-report/slides/) |
+| [paper-slides](skills/paper-slides/) | ✅ 可用 | 标准美观的学术汇报 PPT：pptxgenjs + slidekit.js 组件库，模型只组装组件不手拍坐标；中西文混排自动分字体，封面/目录/章节过渡/三线表/页码等中文学术惯例内建，3 套配色主题、中英双语；fetchimg 按题目拉取 CC 许可真实网络配图（格式嗅探/转码/压缩），aiimg 调 DashScope 出图模型生成概念示意图（目检回炉 + AI 标注），组图先单张再 collage 确定性拼版，全部署名由 credits.json 机制自动落页；全片默认注入克制的放映切换效果。产出原生可编辑 pptx + 可复现脚本。示例见 [examples/bse-eds-report/slides](examples/bse-eds-report/slides/) |
 | [paper-polish](skills/paper-polish/) | ✅ 可用 | 顶刊编辑视角论文润色：整篇 30+ 条逐条修改意见（Major/Moderate/Minor 分级），每条用中文讲清为什么这样改；改语言不改科学，可疑科学表述单列"编辑提问"；系统性去 AI 味。内置去 AI 味特征清单、审稿维度清单、按 section 组织的顶刊句式库；产出润色报告 + 修改后全文（.tex/.docx 原格式回填） |
 
 此外,仓库内置 **[paperflow](paperflow/)** —— 基于 LangGraph 的论文生成流水线:大纲之后**文献链与图表链并行**(按主题现场生成 matplotlib 图),引用经 Crossref/Semantic Scholar 真实性核验(自动剔除编造 DOI),再渲染进**标准 LaTeX 模板**(SCI 单栏投稿格式 / 北京大学 pkuthss 学位论文)并用 tectonic 编译 PDF,QA 不过自动修订。LLM 后端默认走**本机 claude CLI 登录态**(不需要 API key),端到端演示见 [examples/paperflow-demo](examples/paperflow-demo/)。

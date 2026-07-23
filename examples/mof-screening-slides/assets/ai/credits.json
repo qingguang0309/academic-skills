@@ -1,0 +1,26 @@
+{
+  "mof_concept.png": {
+    "title": "MOF 多孔晶格吸附 CO2 概念图",
+    "creator": "qwen-image-2.0-pro",
+    "license": "AI 生成(示意)",
+    "provider": "",
+    "source_page": "",
+    "query": "MOF 晶格 CO2 入孔 墨绿金铜 科技插画"
+  },
+  "tower.png": {
+    "title": "工业 CO2 吸附塔简洁剖面示意图:竖直圆柱塔体,内部三层规整的多孔吸附床层清晰可见,烟气从塔底部侧面管口进入并沿塔内向上流动(用向上的浅色气流箭头表现),净化",
+    "creator": "qwen-image-2.0-pro",
+    "license": "AI 生成(示意)",
+    "provider": "",
+    "source_page": "",
+    "query": "工业 CO2 吸附塔简洁剖面示意图:竖直圆柱塔体,内部三层规整的多孔吸附床层清晰可见,烟气从塔底部侧面管口进入并沿塔内向上流动(用向上的浅色气流箭头表现),净化后的洁净气体从塔顶细管排出一缕淡色气流,塔底无任何液体,深墨绿与金铜色配色,深色纯净背景,简洁现代扁平科技插画,居中构图"
+  },
+  "concept_duo.png": {
+    "title": "MOF 吸附 CO2 概念双联图",
+    "creator": "qwen-image-2.0-pro",
+    "license": "AI 生成(示意)",
+    "provider": "",
+    "source_page": "",
+    "query": "collage of mof_concept + tower"
+  }
+}

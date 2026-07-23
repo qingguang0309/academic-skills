@@ -13,6 +13,7 @@ description: 制作标准、美观的学术汇报 PPT(pptx)。只要用户提到
 2. **中西文混排交给 runs 机制。** slidekit 自动把汉字段分给中文字体、拉丁/数字段分给西文字体,全角标点归中文。不要自己拼 fontFace,不要在中文里硬打半角逗号句号。
 3. **每页标题是完整结论句(action title)。** 通读全部页标题应当就是完整论证(ghost deck test)。"研究背景"、"实验方法"这类话题词只允许出现在章节过渡页,不允许作内容页标题。
 4. **网络配图只走 fetchimg + 自动署名。** 每个 deck 都要为合适的页面配真实网络图片(见第 2.5 步),但只能用 `scripts/fetchimg.py` 拉取(Openverse 聚合的 CC0/公有领域/CC-BY/CC-BY-SA 图),许可与作者自动登记进 `credits.json`,figure 块渲染时自动落署名行。禁止从搜索引擎/网页随手扒图,禁止用许可不明的图;拿不到合规图就不配图,宁缺毋滥。
+5. **多图先单张,拼版走机制;AI 生图必目检必标注。** 组图永远"先生成每张单图,再用 `scripts/collage.py` 确定性拼版"(等高、统一留白、角标),不把拼版交给生成模型。概念示意图用 `scripts/aiimg.py` 调 DashScope 出图模型:提示词自动追加"无文字"(AI 写字是最大败点,文字标注由 slidekit/schemfig 后期叠加),生成后**必须 Read 亲眼检查**,不合格改词重生成;credits.json 自动标"AI 生成(示意)"并落页。数据图与文字精确的流程图仍走 paper-figures/schemfig——AI 图只做概念与氛围,不做数据陈述。
 
 ## 工作流程
 
@@ -66,6 +67,25 @@ python3 fetchimg.py "metal organic framework crystal structure" -n 3 -o assets/w
 - 版式:实景图常用 `cols` 图文混排(照片 + 要点),或小尺寸(maxH 2.2–2.8)嵌在动机页;科学示意图可作整页 figure。
 - 署名是机制:figure 块自动读 `credits.json` 生成"作者 / 许可 / 来源"小字;显式传 `credit` 可覆盖,传 `credit: ""` 明确豁免(仅限自己生成的图)。
 - 挑图标准:构图干净、主体明确、分辨率 ≥900px、与论点直接相关;水印图、拼贴图、艺术加工过度的图一律不用。
+
+### 第 2.6 步:AI 概念图与组图(按需)
+
+照片覆盖不到的**概念/机理/愿景**画面,用 `scripts/aiimg.py` 现场生成(DashScope 多模态出图,key 读环境变量或 ~/dashscope-tool/key.txt):
+
+```bash
+python3 aiimg.py "MOF 多孔晶格特写,CO₂ 分子入孔,深墨绿金铜配色,深色背景,简洁科技插画" -o assets/ai/mof.png
+python3 aiimg.py "同风格的吸附塔剖面" --ref assets/ai/mof.png -o assets/ai/tower.png   # 带参考图改图/保持风格
+python3 collage.py assets/ai/duo.png assets/ai/mof.png assets/ai/tower.png --labels    # 确定性拼双联
+```
+
+- 提示词配方:**主体 + 配色(呼应 deck 主题色)+ 风格词("简洁现代科技插画/扁平学术风")**;"无文字"后缀自动追加。
+- 质量闭环:每张生成后 Read 目检——构图乱/要素错/质感差就改提示词重生成,直到满意才进 deck。
+- 组图纪律:单张分开生成(AI 或 matplotlib 或照片),`collage.py` 拼版;绝不让模型一次画多联图。
+- 适用位置:章节愿景、机理示意、封面氛围(浅色内容页慎用大面积深色图);每页仍只一个 exhibit。
+
+### 放映效果
+
+slidekit 默认给全部页面注入**淡入(fade)切换**——学术场合克制而有质感;`new Deck({ transition: "wipe" | "push" | "none" })` 可改可关。不加逐元素入场动画:内容页动画是学术汇报反模式。
 
 ### 第 3 步:渲染并亲眼检查(必做)
 

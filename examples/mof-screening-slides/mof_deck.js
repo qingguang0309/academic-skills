@@ -170,6 +170,18 @@ d.refs([
   "Jablonka, K.M., Ongari, D., Moosavi, S.M., & Smit, B. (2020). Big-data science in porous materials. Chemical Reviews, 120, 8066–8129.",
 ]);
 
+d.page({
+  kicker: "附录 A · 概念示意",
+  title: "物理图像:多孔晶格捕获 CO₂,床层化实现工程放大",
+  blocks: [
+    { type: "figure", path: "assets/ai/concept_duo.png", maxH: 4.0,
+      caption: "微观晶格吸附(a)与吸附塔床层工程化(b)的概念示意" },
+    { type: "text", size: 12.5, color: "6F7873",
+      text: "概念图仅用于建立物理直觉,不承载数据;单张分别生成后由 collage 确定性拼版。" },
+  ],
+  notes: "备被问“宏观上怎么用”时展开:微观吸附位点 → 床层 → 塔;涉及数据一律回到 P9–P12。",
+});
+
 d.closing({ contact: "liming@example.edu.cn", notes: "被追问细节时退回结论页或对应页码。" });
 
 d.build("mof_screening_proposal.pptx");

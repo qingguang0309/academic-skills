@@ -203,6 +203,7 @@ class Deck {
       else if (op.k === "closing") this._closing(ctx, op.a);
     }
     await pres.writeFile({ fileName });
+    await addTransitions(fileName, this.meta.transition ?? "fade");
     if (this.warns.length) {
       console.warn("slidekit 布局警告(建议处理):");
       this.warns.forEach(w => console.warn("  - " + w));
@@ -612,6 +613,31 @@ class Deck {
       x: M, y: 5.7, w: CW, h: 0.36, margin: 0 });
     if (a.notes) s.addNotes(a.notes);
   }
+}
+
+// ---------- 放映效果:写盘后向每页注入 <p:transition>(pptxgenjs 不支持切换) ----------
+// 默认克制的 fade;Deck 构造传 transition: "fade"|"wipe"|"push"|"none" 可改。
+// 注入点:</p:sld> 之前(schema 顺序 cSld → clrMapOvr → transition),幂等。
+const TRANSITIONS = {
+  fade: '<p:fade/>',
+  wipe: '<p:wipe dir="r"/>',
+  push: '<p:push dir="r"/>',
+};
+async function addTransitions(fileName, kind) {
+  if (!kind || kind === "none") return;
+  const frag = TRANSITIONS[kind];
+  if (!frag) { console.warn(`slidekit: 未知放映效果 ${kind},已跳过`); return; }
+  let JSZip;
+  try { JSZip = require("jszip"); } catch { console.warn("slidekit: 缺 jszip,放映效果跳过"); return; }
+  const zip = await JSZip.loadAsync(fs.readFileSync(fileName));
+  const slides = Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n));
+  for (const n of slides) {
+    let xml = await zip.file(n).async("string");
+    if (xml.includes("<p:transition")) continue;
+    xml = xml.replace("</p:sld>", `<p:transition spd="med">${frag}</p:transition></p:sld>`);
+    zip.file(n, xml);
+  }
+  fs.writeFileSync(fileName, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
 }
 
 // ---------- 网络图自动署名:读图片同目录 credits.json(fetchimg.py 生成) ----------
