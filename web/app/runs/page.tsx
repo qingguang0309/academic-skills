@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Card, Badge, Btn, PageHead, fmtTime, fmtDur } from "@/components/ui";
+import { Card, Badge, Btn, PageHead, SectionTitle, EmptyState, fmtTime, fmtDur } from "@/components/ui";
 import { IconPlay } from "@/components/icons";
 
 type Task = { id: string; title: string; tool: string; desc: string; script: string; hint?: string; produces: string[] };
@@ -106,9 +106,9 @@ function RunsInner() {
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <div className="xl:col-span-2 order-2 xl:order-1">
-          <h2 className="font-display text-[18px] mb-3">运行记录</h2>
+          <SectionTitle title="运行记录" />
           <Card className="divide-y divide-line max-h-[420px] overflow-y-auto">
-            {runs.length === 0 && <div className="px-5 py-8 text-center text-[12.5px] text-faint">暂无记录</div>}
+            {runs.length === 0 && <EmptyState className="py-9" title="暂无运行记录" />}
             {runs.map((r) => (
               <button
                 key={r.id}
@@ -124,11 +124,9 @@ function RunsInner() {
         </div>
 
         <div className="xl:col-span-3 order-1 xl:order-2">
-          <h2 className="font-display text-[18px] mb-3">日志与产物</h2>
+          <SectionTitle title="日志与产物" />
           {!open && (
-            <Card className="px-6 py-14 text-center text-[13px] text-faint">
-              运行一个任务,或从左侧记录中选择一条查看日志
-            </Card>
+            <Card><EmptyState className="py-14" title="还没有选中任何运行" hint="运行一个任务,或从记录中选择一条查看日志" /></Card>
           )}
           {open && detail && (
             <Card className="overflow-hidden">
@@ -168,7 +166,7 @@ function RunsInner() {
               )}
             </Card>
           )}
-          {open && !detail && !err && <Card className="px-6 py-14 text-center text-[13px] text-faint">载入日志…</Card>}
+          {open && !detail && !err && <Card><EmptyState className="py-14" title="载入日志…" /></Card>}
         </div>
       </div>
     </div>

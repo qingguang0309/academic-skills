@@ -1,7 +1,8 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Card, Badge, Modal, PageHead, fmtSize, fmtTime } from "@/components/ui";
+import { Card, Badge, Modal, PageHead, EmptyState, fmtSize, fmtTime } from "@/components/ui";
+import { Logo } from "@/components/icons";
 import { IconDoc, IconDownload, IconResources } from "@/components/icons";
 
 type Artifact = {
@@ -149,7 +150,10 @@ function ResourcesInner() {
         {sections.map(({ group, meta, finals, materials }) => (
           <section key={group}>
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3.5">
-              <h2 className="font-display text-[18px]">{meta.label}</h2>
+              <span className="inline-flex items-center gap-2">
+                <Logo size={10} className="text-gold translate-y-[-1px]" />
+                <h2 className="font-display text-[19px] tracking-tight">{meta.label}</h2>
+              </span>
               <span className="text-[11.5px] text-faint">
                 {finals.length + materials.length} 个文件 · examples/{group}
               </span>
@@ -190,7 +194,7 @@ function ResourcesInner() {
         ))}
       </div>
       {sections.length === 0 && (
-        <div className="text-center text-faint text-sm py-16">没有匹配的文件,换个关键词或类型试试</div>
+        <EmptyState className="py-16" title="没有匹配的文件" hint="换个关键词或类型试试" />
       )}
 
       <Modal open={!!focus} onClose={() => setFocus(null)} wide>

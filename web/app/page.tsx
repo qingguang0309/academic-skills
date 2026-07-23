@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, Badge, PageHead, fmtTime } from "@/components/ui";
+import { Card, Badge, PageHead, SectionTitle, EmptyState, fmtTime } from "@/components/ui";
+import { Logo } from "@/components/icons";
 
 type Overview = {
   skills: { name: string; description: string; installed: boolean; updatable: boolean; scripts: string[] }[];
@@ -31,7 +32,8 @@ export default function Home() {
   ];
 
   return (
-    <div className="px-5 py-6 md:px-10 md:py-9 max-w-6xl rise">
+    <div className="px-5 py-6 md:px-10 md:py-9 max-w-6xl rise relative">
+      <Logo size={215} className="hidden lg:block absolute -top-10 -right-6 text-[#eae6d8] pointer-events-none" />
       <PageHead
         kicker="ACADEMIC SKILLS"
         title="从数据到投稿,再到上台汇报"
@@ -41,16 +43,13 @@ export default function Home() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
         {stat.map((s) => (
           <Card key={s.label} className="px-5 py-4">
-            <div className="font-display text-[30px] text-clay-deep leading-none">{s.v}</div>
-            <div className="text-[12px] text-ink2 mt-2">{s.label}</div>
+            <div className="font-display text-[34px] text-clay-deep leading-none">{s.v}</div>
+            <div className="text-[12px] text-ink2 mt-2.5">{s.label}</div>
           </Card>
         ))}
       </div>
 
-      <div className="flex items-baseline gap-3 mb-3">
-        <h2 className="font-display text-[18px]">技能与工作流</h2>
-        <span className="text-[11.5px] text-faint">{data.skills.length} 个技能 · {data.workflows.length} 条流水线</span>
-      </div>
+      <SectionTitle title="技能与工作流" note={`${data.skills.length} 个技能 · ${data.workflows.length} 条流水线`} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
         {data.skills.map((s) => (
           <Card key={s.name} className="p-5 flex flex-col">
@@ -95,10 +94,7 @@ export default function Home() {
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <div className="xl:col-span-3">
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 className="font-display text-[18px]">最新产物</h2>
-            <Link href="/resources" className="text-[12.5px] text-clay-deep hover:underline">全部资源 →</Link>
-          </div>
+          <SectionTitle title="最新产物" right={<Link href="/resources" className="text-[12.5px] text-clay-deep hover:underline">全部资源 →</Link>} />
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {data.latest.filter((a) => a.previewable === "image").slice(0, 8).map((a) => (
               <Link key={a.rel} href={`/resources?focus=${encodeURIComponent(a.rel)}`}>
@@ -117,16 +113,10 @@ export default function Home() {
           </div>
         </div>
         <div className="xl:col-span-2">
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 className="font-display text-[18px]">最近运行</h2>
-            <Link href="/runs" className="text-[12.5px] text-clay-deep hover:underline">运行中心 →</Link>
-          </div>
+          <SectionTitle title="最近运行" right={<Link href="/runs" className="text-[12.5px] text-clay-deep hover:underline">运行中心 →</Link>} />
           <Card className="divide-y divide-line">
             {data.runs.length === 0 && (
-              <div className="px-5 py-8 text-center text-[12.5px] text-faint">
-                还没有运行记录
-                <div className="mt-1">去运行中心跑一个示例任务试试</div>
-              </div>
+              <EmptyState className="py-9" title="还没有运行记录" hint="去运行中心跑一个示例任务试试" />
             )}
             {data.runs.map((r) => (
               <Link key={r.id} href={`/runs?open=${r.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-panel2 transition-colors">

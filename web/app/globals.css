@@ -2,17 +2,17 @@
 
 /* —— Claude / Anthropic 设计令牌:象牙白、碳黑、赭;Tiempos/Styrene 系字体 —— */
 @theme {
-  --color-paper: #f0eee6;      /* 侧栏/深一档象牙 (ivory medium) */
-  --color-page: #faf9f5;       /* 主内容底 (ivory light) */
-  --color-panel: #fdfcfa;      /* 卡片 */
-  --color-panel2: #f0eee6;     /* 次级面板/悬停 */
+  --color-paper: #efece2;      /* 侧栏/深一档象牙 (ivory medium) */
+  --color-page: #f5f3ec;       /* 主内容底 —— 比卡片深一档,让白卡"浮"起来 */
+  --color-panel: #ffffff;      /* 卡片:纯白,与纸底形成克制的层次 */
+  --color-panel2: #f1eee5;     /* 次级面板/悬停 */
   --color-ink: #141413;        /* 主文字 (carbon) */
-  --color-ink2: #61605b;       /* 次文字 (slate) */
-  --color-faint: #a29e93;      /* 弱文字 */
-  --color-line: #e3dfd3;       /* 细线 */
+  --color-ink2: #63615a;       /* 次文字 (slate) */
+  --color-faint: #a09b8e;      /* 弱文字 */
+  --color-line: #e4e0d3;       /* 细线 */
   --color-clay: #d97757;       /* 赭 —— 主强调 */
   --color-clay-deep: #b4552d;
-  --color-clay-wash: #f4e5dd;
+  --color-clay-wash: #f5e6dd;
   --color-moss: #6a815c;       /* 成功 */
   --color-moss-wash: #ecefe6;
   --color-gold: #c9a227;
@@ -34,6 +34,10 @@ body {
 }
 
 .font-display { font-family: var(--font-display); letter-spacing: 0.005em; }
+
+/* 选区与键盘焦点也进入品牌语言 */
+::selection { background: var(--color-clay-wash); color: var(--color-clay-deep); }
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--color-clay) 45%, transparent); outline-offset: 2px; border-radius: 6px; }
 
 /* 细腻滚动条 */
 *::-webkit-scrollbar { width: 8px; height: 8px; }

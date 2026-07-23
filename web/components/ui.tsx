@@ -1,22 +1,52 @@
 "use client";
 import { useEffect } from "react";
+import { Logo } from "./icons";
 
 export function PageHead({ kicker, title, sub, right }: {
   kicker?: string; title: string; sub?: string; right?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6 mb-6 md:mb-7">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6 mb-7 md:mb-9">
       <div>
         {kicker && (
-          <div className="flex items-center gap-2 mb-2">
-            <span className="h-2 w-2 bg-gold inline-block" />
-            <span className="text-[12px] tracking-widest text-clay-deep font-medium">{kicker}</span>
+          <div className="flex items-center gap-2 mb-2.5">
+            <Logo size={11} className="text-gold" />
+            <span className="text-[11.5px] tracking-[0.18em] text-clay-deep font-medium">{kicker}</span>
           </div>
         )}
-        <h1 className="font-display text-[22px] md:text-[26px] leading-snug">{title}</h1>
-        {sub && <p className="text-[13.5px] text-ink2 mt-1.5 max-w-2xl leading-relaxed">{sub}</p>}
+        <h1 className="font-display text-[25px] md:text-[30px] leading-snug tracking-tight">{title}</h1>
+        {sub && <p className="text-[13.5px] text-ink2 mt-2 max-w-2xl leading-relaxed">{sub}</p>}
       </div>
       {right && <div className="sm:shrink-0">{right}</div>}
+    </div>
+  );
+}
+
+/** 区块标题:星标母题 + 衬线标题 + 弱化副注 */
+export function SectionTitle({ title, note, right, className = "" }: {
+  title: string; note?: string; right?: React.ReactNode; className?: string;
+}) {
+  return (
+    <div className={"flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3.5 " + className}>
+      <span className="inline-flex items-center gap-2">
+        <Logo size={10} className="text-gold translate-y-[-1px]" />
+        <h2 className="font-display text-[19px] tracking-tight">{title}</h2>
+      </span>
+      {note && <span className="text-[11.5px] text-faint">{note}</span>}
+      {right && <span className="ml-auto">{right}</span>}
+    </div>
+  );
+}
+
+/** 空态:淡星标 + 一句话 */
+export function EmptyState({ title, hint, className = "" }: {
+  title: string; hint?: string; className?: string;
+}) {
+  return (
+    <div className={"flex flex-col items-center justify-center text-center py-12 " + className}>
+      <Logo size={30} className="text-line" />
+      <div className="text-[13px] text-ink2 mt-3">{title}</div>
+      {hint && <div className="text-[12px] text-faint mt-1">{hint}</div>}
     </div>
   );
 }
@@ -28,8 +58,10 @@ export function Card({ children, className = "", onClick }: {
     <div
       onClick={onClick}
       className={
-        "rounded-2xl border border-line bg-panel shadow-[0_1px_2px_rgba(41,38,31,0.04)] " +
-        (onClick ? "cursor-pointer transition-all hover:shadow-[0_4px_16px_rgba(41,38,31,0.07)] hover:-translate-y-px " : "") +
+        "rounded-2xl border border-line bg-panel shadow-[0_1px_2px_rgba(20,20,19,0.04),0_2px_8px_rgba(20,20,19,0.03)] " +
+        (onClick
+          ? "cursor-pointer transition-all duration-200 hover:shadow-[0_12px_28px_rgba(20,20,19,0.09)] hover:-translate-y-[2px] hover:border-[#d9d3c3] "
+          : "") +
         className
       }
     >
@@ -60,17 +92,17 @@ export function Btn({ children, onClick, tone = "ghost", disabled, small }: {
   children: React.ReactNode; onClick?: () => void;
   tone?: "primary" | "ghost" | "danger"; disabled?: boolean; small?: boolean;
 }) {
-  const base = small ? "px-3 py-1.5 text-[12.5px]" : "px-4 py-2 text-[13.5px]";
+  const base = small ? "px-3.5 py-1.5 text-[12.5px]" : "px-5 py-2 text-[13.5px]";
   const cls = {
-    primary: "bg-clay text-white hover:bg-clay-deep",
-    ghost: "border border-line bg-panel text-ink hover:bg-panel2",
-    danger: "border border-line bg-panel text-rust hover:bg-rust-wash",
+    primary: "bg-clay text-white hover:bg-clay-deep shadow-[0_1px_2px_rgba(180,85,45,0.35)]",
+    ghost: "border border-line bg-panel text-ink hover:bg-panel2 hover:border-faint/60",
+    danger: "border border-line bg-panel text-rust hover:bg-rust-wash hover:border-rust/30",
   }[tone];
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${base} ${cls}`}
+      className={`rounded-full font-medium transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 ${base} ${cls}`}
     >
       {children}
     </button>
@@ -87,9 +119,9 @@ export function Modal({ open, onClose, children, wide }: {
   }, [onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(41,38,31,0.45)] p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(20,20,19,0.42)] backdrop-blur-[2px] p-4 md:p-6" onClick={onClose}>
       <div
-        className={`rise rounded-2xl bg-paper border border-line shadow-2xl overflow-hidden ${wide ? "w-[min(1080px,94vw)]" : "w-[min(760px,92vw)]"} max-h-[88vh] flex flex-col`}
+        className={`rise rounded-2xl bg-page border border-line shadow-[0_24px_64px_rgba(20,20,19,0.28)] overflow-hidden ${wide ? "w-[min(1080px,94vw)]" : "w-[min(760px,92vw)]"} max-h-[88vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}

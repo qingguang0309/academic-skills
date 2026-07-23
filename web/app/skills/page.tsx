@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { Card, Badge, Btn, Modal, PageHead, Md } from "@/components/ui";
+import { Card, Badge, Btn, Modal, PageHead, SectionTitle, Md } from "@/components/ui";
 import { IconDoc, IconGear } from "@/components/icons";
 
 type Skill = {
@@ -101,7 +101,7 @@ export default function SkillsPage() {
         ))}
       </div>
 
-      <h2 className="font-display text-[18px] mb-3">内置工作流</h2>
+      <SectionTitle title="内置工作流" />
       <p className="text-[12.5px] text-ink2 mb-4 max-w-2xl">
         paperflow 与 figflow 不是 Agent Skill,而是随仓库分发的流水线/引擎,直接在仓库目录内运行;可在运行中心体验端到端示例。
       </p>
