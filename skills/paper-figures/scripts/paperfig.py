@@ -158,6 +158,10 @@ def check_layout(fig, contain: float = 0.60) -> list[str]:
     3. 数据坐标文字出轴(transData 文字落在所属 axes 外或被裁剪过半——
        ax.text/annotate 默认不裁剪,超出坐标范围的标注会"飘"到面板外)
 
+    4. 文字跨越图形框线(示意图高发:文字比框宽,溢出到框外)
+       4b. 元素骑在容器框线上(文字或实心框伸出底带/分区边线)
+    5. 示意图几何检查(schemfig 注册的箭头穿过元素/压过文字)
+
     刻度标签之间、panel 标号(axes fraction 坐标)不在第 3 类检查范围。
     出告警就调整布局重跑;体检通过后仍须出 PNG 亲眼检查(感知类问题查不出来)。
     """
@@ -197,6 +201,56 @@ def check_layout(fig, contain: float = 0.60) -> list[str]:
             frac = 0.0 if ib is None else (ib.width * ib.height) / (b.width * b.height)
             if frac < contain:
                 issues.append(f"数据坐标文字出轴: {s!r} (仅 {frac:.0%} 在轴内)")
+    # 4) 文字跨框线:只查画在 figure 坐标上的实心图形框(示意图元素),
+    #    数据图里的 bar/legend patch 不在此列。schemfig 的容器底带
+    #    (_schem_solid=False)与占画布过半的背景框跳过——元素本就画在其上。
+    from matplotlib.patches import FancyBboxPatch
+    boxes = []
+    for p in fig.findobj(FancyBboxPatch):
+        if p.get_transform() is not fig.transFigure or not p.get_visible():
+            continue
+        if getattr(p, "_schem_solid", True) is False:
+            continue
+        bb = p.get_window_extent(r)
+        if bb.width * bb.height > 0.55 * fig.bbox.width * fig.bbox.height:
+            continue
+        boxes.append(bb)
+    for t, s, b in texts:
+        for bb in boxes:
+            ib = mpl.transforms.Bbox.intersection(b, bb)
+            frac = 0.0 if ib is None else (ib.width * ib.height) / (b.width * b.height)
+            if 0.08 < frac < 0.95:
+                issues.append(f"文字跨框线: {s!r} (仅 {frac:.0%} 在框内——要么全进要么全出)")
+    # 4b) 容器压线:容器底带(solid=False)允许元素画在其内部,但元素(文字/实心框)
+    #     不许"骑"在容器框线上——要么全进,要么全出。这正是"徽章/长文字
+    #     伸出底带边线"一类缺陷的检测点(容器不参与 4 的实心框检查,但
+    #     它自己的边线仍是视觉硬边界)。
+    containers, solid_boxes = [], []
+    for p in fig.findobj(FancyBboxPatch):
+        if p.get_transform() is not fig.transFigure or not p.get_visible():
+            continue
+        bb = p.get_window_extent(r)
+        if getattr(p, "_schem_solid", True) is False:
+            containers.append(bb)
+        else:
+            solid_boxes.append(bb)
+    def _frac_in(inner, outer):
+        ib = mpl.transforms.Bbox.intersection(inner, outer)
+        return 0.0 if ib is None else (ib.width * ib.height) / (inner.width * inner.height)
+    for cb in containers:
+        for t, s, b in texts:
+            frac = _frac_in(b, cb)
+            if 0.08 < frac < 0.95:
+                issues.append(f"文字骑在容器框线上: {s!r} (仅 {frac:.0%} 在容器内)")
+        for bb in solid_boxes:
+            frac = _frac_in(bb, cb)
+            if 0.08 < frac < 0.95:
+                issues.append(f"元素框骑在容器框线上 (仅 {frac:.0%} 在容器内,"
+                              f"约 x={bb.x0/fig.bbox.width:.2f},y={bb.y0/fig.bbox.height:.2f})")
+    # 5) 示意图几何检查:schemfig.canvas 会在 fig 上挂 _schem_check
+    extra = getattr(fig, "_schem_check", None)
+    if callable(extra):
+        issues += list(extra())
     return issues
 
 
@@ -208,15 +262,60 @@ def grayscale(png_path: str) -> str:
     return out
 
 
-def export(fig, stem: str, formats=("pdf", "png"), dpi: int = 600) -> list[str]:
+def export(fig, stem: str, formats=("pdf", "png"), dpi: int = 600,
+           strict: bool = True, crops="auto") -> list[str]:
     """按最终尺寸导出。默认 PDF（投稿矢量图）+ PNG 600 dpi（预览/检查）。
     需要 TIFF 时在 formats 里加 'tiff'。故意不用 bbox_inches='tight'。
+    图要插 Word/PPT 时在 formats 里加 'svg'（文字自动转路径,Word 2016+ 原生
+    支持矢量插入,任意缩放不糊;PNG 插 Word 会被默认压缩到 220 ppi）。
+
+    strict=True（默认）：体检告警非零直接拒绝导出——图不许带着已知缺陷
+    交出去。逐条修复后重跑；确认是误报才可 strict=False，且要在交付说明里
+    写明理由。crops="auto"：示意图（schemfig 画布）自动把 PNG 切成 2×2
+    局部放大块，逐块用 Read 亲眼检查（整图缩略看不见几像素的擦边）。
     """
-    for msg in check_layout(fig):          # 导出前自动体检,告警打印但不阻断
+    issues = check_layout(fig)
+    for msg in issues:
         print(f"[paperfig 布局告警] {msg}")
+    if issues and strict:
+        raise RuntimeError(
+            f"布局体检 {len(issues)} 条告警，已阻断导出；逐条修复后重跑"
+            f"（确认误报才可 strict=False，并在交付说明中说明理由）")
     paths = []
     for ext in formats:
         path = f"{stem}.{ext}"
-        fig.savefig(path, dpi=dpi)
+        if ext == "svg":
+            # Word/PPT 用矢量:文字转路径,不依赖对方机器字体,缩放永远清晰
+            with mpl.rc_context({"svg.fonttype": "path"}):
+                fig.savefig(path)
+        else:
+            fig.savefig(path, dpi=dpi)
         paths.append(path)
+    if crops == "auto":
+        crops = bool(getattr(fig, "_schem_obstacles", None))
+    png = next((p for p in paths if p.endswith(".png")), None)
+    if crops and png:
+        cs = make_crops(png)
+        print("[paperfig] 局部放大块已生成，请逐块 Read 检查: " + ", ".join(cs))
+        paths += cs
     return paths
+
+
+def make_crops(png_path: str, rows: int = 2, cols: int = 2,
+               overlap: float = 0.10) -> list[str]:
+    """PNG 切成 rows×cols 带重叠的局部块，供放大肉眼检查。"""
+    from PIL import Image
+    im = Image.open(png_path)
+    W, H = im.size
+    stem = png_path[:-4]
+    out = []
+    for i in range(rows):
+        for j in range(cols):
+            x0 = max(0, int((j - overlap) * W / cols))
+            x1 = min(W, int((j + 1 + overlap) * W / cols))
+            y0 = max(0, int((i - overlap) * H / rows))
+            y1 = min(H, int((i + 1 + overlap) * H / rows))
+            p = f"{stem}_crop{i * cols + j + 1}.png"
+            im.crop((x0, y0, x1, y1)).save(p)
+            out.append(p)
+    return out
