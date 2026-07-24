@@ -19,7 +19,7 @@ description: 制作标准、美观的学术汇报 PPT(pptx)。只要用户提到
 
 - **场合**:组会 / 开题 / 中期 / 答辩 / 基金汇报 / 会议 talk?决定时长与页数预算(每分钟 ≤1 页内容页)。
 - **语言**:`lang:'zh'` 或 `'en'`,决定字体与固定文案(目录/参考文献/致谢)。
-- **主题**:`azure`(藏青·金,通用)/ `pine`(墨绿·赭)/ `plum`(绛紫·杏);用户单位有主色可在 THEMES 上加一套。
+- **主题**:`azure`(藏青·金,通用)/ `pine`(墨绿·赭)/ `plum`(绛紫·杏)/ `pku`(北大红·燕园金,北京大学);用户单位有主色可在 THEMES 上加一套。
 - **素材**:已有论文图直接引用(figure 块自动读尺寸防变形);需要新图先走 paper-figures skill 生成,再进 deck。
 
 ### 第 1 步:先出大纲,过 ghost deck test
@@ -30,7 +30,7 @@ description: 制作标准、美观的学术汇报 PPT(pptx)。只要用户提到
 
 ### 第 2 步:搭目录写脚本
 
-在用户项目下建 `slides/` 目录,复制 `scripts/slidekit.js` 进去(之后属于用户项目),生成脚本命名 `<主题>_deck.js`:
+在用户项目下建 `slides/` 目录,复制 `scripts/slidekit.js` 进去(之后属于用户项目);**用 `pku` 主题时,连同 `scripts/assets/` 一起复制**(内含北大校徽 `pku-seal.png` / `pku-logo.png`,slidekit 默认按 `slidekit.js` 同级的 `assets/` 找)。生成脚本命名 `<主题>_deck.js`:
 
 ```js
 const { Deck } = require("./slidekit");

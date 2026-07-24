@@ -17,6 +17,7 @@
 // ============================================================
 "use strict";
 const fs = require("fs");
+const path = require("path");
 const pptxgen = require("pptxgenjs");
 
 // ---------- 画布与网格(16:9 宽屏,单位英寸) ----------
@@ -56,6 +57,12 @@ const THEMES = {
     ink: "26232A", muted: "757079", faint: "A19CA5",
     line: "E0D8E2", wash: "F6F3F7", washBorder: "E9E1EB", tint: "EFE7F0",
     onDark: "FFFFFF", onDarkSub: "CDB9CF",
+  },
+  pku: { // 北大红·燕园金 —— 北京大学官方模版配色(北大红 9A0001 / 燕园金 CEAB6E)
+    primary: "9A0001", accent: "BE2A2E", warm: "CEAB6E",
+    ink: "2A2422", muted: "797069", faint: "A79E97",
+    line: "E7DAD8", wash: "FBF5F4", washBorder: "F0E1DF", tint: "F4E4E3",
+    onDark: "FFFFFF", onDarkSub: "E6BEB4",
   },
 };
 
@@ -139,6 +146,58 @@ class Deck {
     this.sections = [];       // {title, note, opIndex}
     this.figN = 0; this.tabN = 0;
     this.warns = [];
+    this.brand = this._resolveBrand(opts);
+  }
+
+  // 品牌资源(校徽/logo):pku 主题默认引用随 slidekit 打包的 assets/,
+  // 也可用 opts.logo / opts.seal 显式指定(传绝对路径或相对生成脚本的路径),
+  // 传 false 关闭;文件不存在则静默跳过(不影响其它主题)。
+  //   logo  = 印章+校名横排锁定版,置于正文/章节/目录/参考文献页右上角
+  //   seal  = 圆形印章,用于 band 式封面/结束页居中
+  //   style = 'band'(白—红—白三段带 + 居中印章,北大官方封面样式)/ 'plain'(纯色封面)
+  _resolveBrand(opts) {
+    const dir = path.join(__dirname, "assets");
+    const isPku = (opts.theme === "pku");
+    const has = p => { try { return p && fs.existsSync(p) ? p : null; } catch (e) { return null; } };
+    const pick = (v, def) => v === false ? null : has(v || def);
+    const logo = pick(opts.logo, isPku ? path.join(dir, "pku-logo.png") : null);
+    const seal = pick(opts.seal, isPku ? path.join(dir, "pku-seal.png") : null);
+    const style = opts.coverStyle || (seal ? "band" : "plain");
+    return { logo, seal, style, corner: opts.cornerLogo !== false && !!logo };
+  }
+
+  // 正文/章节/目录/参考文献页右上角的横排 logo(印章+校名),等高缩放不变形
+  _brandCorner(ctx) {
+    if (!this.brand.corner || !this.brand.logo) return;
+    const d = imgSize(this.brand.logo);
+    const h = 0.4, w = h * d.w / d.h;
+    ctx.slide.addImage({ path: this.brand.logo, x: W - M - w, y: 0.34, w, h });
+  }
+
+  // band 式封面/结束页:白底 + 居中红带 + 印章骑在红带上沿,主文字居中于带内
+  _bandBase(ctx, o) {
+    const th = this.theme, s = ctx.slide, R = this.pres.shapes.RECTANGLE;
+    // 印章整枚坐落白区、下沿切于红带上沿(印章与红带同色,故不让其没入红带)
+    const sealH = 1.4, sealTop = 0.55, bandTop = sealTop + sealH, bandH = 3.3;
+    s.addShape(R, { x: 0, y: bandTop, w: W, h: bandH, fill: { color: th.primary }, line: { type: "none" } });
+    if (this.brand.seal) {
+      const d = imgSize(this.brand.seal), sw = sealH * d.w / d.h;
+      s.addImage({ path: this.brand.seal, x: (W - sw) / 2, y: sealTop, w: sw, h: sealH });
+    }
+    s.addText(this.runs(o.main, { fontSize: o.mainSize || T.coverTitle, color: th.onDark, bold: true, align: "center" }),
+      { x: 1.0, y: 2.62, w: W - 2.0, h: 1.5, margin: 0, align: "center", valign: "middle", lineSpacingMultiple: 1.12 });
+    if (o.sub) {
+      s.addText(this.runs(o.sub, { fontSize: T.coverSub, color: th.onDarkSub, align: "center" }),
+        { x: 1.0, y: 4.32, w: W - 2.0, h: 0.4, margin: 0, align: "center", valign: "middle" });
+      s.addShape(R, { x: W / 2 - 0.35, y: 4.82, w: 0.7, h: 0.014, fill: { color: th.onDarkSub }, line: { type: "none" } });
+    }
+    let y = 5.98;
+    [o.meta1, o.meta2].filter(Boolean).forEach((ln, i) => {
+      s.addText(this.runs(ln, { fontSize: T.coverMeta, color: i === 0 ? th.ink : th.muted, align: "center" }),
+        { x: 1.0, y, w: W - 2.0, h: 0.36, margin: 0, align: "center", valign: "middle" });
+      y += 0.42;
+    });
+    if (o.notes) s.addNotes(o.notes);
   }
 
   // 文本 → pptxgenjs run 数组(自动分配中西文字体)
@@ -250,6 +309,18 @@ class Deck {
   // ---------- 封面 ----------
   _cover(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta;
+    if (this.brand.style === "band" && this.brand.seal) {
+      return this._bandBase(ctx, {
+        main: m.title, mainSize: a.titleSize || T.coverTitle,
+        sub: m.subtitle || m.occasion,
+        meta1: [
+          m.presenter ? `${this.L.presenter}:${m.presenter}` : null,
+          m.advisor ? `${this.L.advisor}:${m.advisor}` : null,
+        ].filter(Boolean).join("     "),
+        meta2: [m.org, m.date].filter(Boolean).join("  ·  "),
+        notes: a.notes,
+      });
+    }
     s.background = { color: th.primary };
     // 母题:左上小方块 + 场合
     this._sq(s, M, 0.92, 0.13, th.warm);
@@ -278,6 +349,7 @@ class Deck {
   // ---------- 目录 ----------
   _toc(ctx) {
     const th = this.theme, s = ctx.slide;
+    this._brandCorner(ctx);
     s.addText(this.runs(this.L.toc, { fontSize: 30, color: th.primary, bold: true, charSpacing: this.lang === "zh" ? 6 : 0 }), {
       x: M, y: 0.62, w: 6, h: 0.6, margin: 0 });
     this._sq(s, M, 1.42, 0.12, th.warm);
@@ -302,6 +374,7 @@ class Deck {
   // ---------- 章节过渡页 ----------
   _section(ctx, a) {
     const th = this.theme, s = ctx.slide;
+    this._brandCorner(ctx);
     // 超大章节号(浅色) + PART 标签
     s.addText([{ text: String(a.idx).padStart(2, "0"), options: {
       fontFace: this.fonts.latin, fontSize: T.sectionNum, color: th.tint, bold: true } }], {
@@ -331,6 +404,7 @@ class Deck {
   // ---------- 内容页 ----------
   _page(ctx, a) {
     const s = ctx.slide;
+    this._brandCorner(ctx);
     const top = this._header(ctx, a);
     const box = { x: M, y: top, w: CW, h: CONTENT_BOTTOM - top };
     this._renderBlocks(ctx, a.blocks || [], box);
@@ -566,6 +640,7 @@ class Deck {
   // ---------- 参考文献页 ----------
   _refs(ctx, a) {
     const th = this.theme, s = ctx.slide;
+    this._brandCorner(ctx);
     const top = this._header(ctx, { title: a.title || this.L.refs, kicker: a.kicker || "" });
     const list = a.list;
     const twoCol = list.length > 5;
@@ -591,6 +666,15 @@ class Deck {
   // ---------- 结束页 ----------
   _closing(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta;
+    if (this.brand.style === "band" && this.brand.seal) {
+      return this._bandBase(ctx, {
+        main: a.main || this.L.closingMain, mainSize: 34,
+        sub: a.sub || m.occasion,
+        meta1: m.org || "",
+        meta2: [a.contact, m.date].filter(Boolean).join("  ·  "),
+        notes: a.notes,
+      });
+    }
     s.background = { color: th.primary };
     this._sq(s, M, 2.5, 0.13, th.warm);
     s.addText(this.runs(a.main || this.L.closingMain, { fontSize: 34, color: th.onDark, bold: true }), {
