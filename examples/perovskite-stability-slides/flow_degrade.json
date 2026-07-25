@@ -1,0 +1,32 @@
+{
+  "theme": "pku",
+  "direction": "LR",
+  "nodes": [
+    {"id": "h2o", "label": "水汽穿透封装层\n85 ℃ / 85% RH"},
+    {"id": "hyd", "label": "钙钛矿水合\nMAPbI₃·H₂O"},
+    {"id": "esc", "label": "有机阳离子逸出\nEa = 0.42 eV", "tone": "tint"},
+    {"id": "mig", "label": "碘化物沿晶界迁移\nEa = 0.68 eV", "tone": "tint"},
+    {"id": "pbi", "label": "界面析出 PbI₂\nEa = 0.94 eV", "tone": "tint"},
+    {"id": "q", "label": "哪一步先到？", "shape": "decision"},
+    {"id": "loss", "label": "效率不可逆衰减", "tone": "emphasis"},
+    {"id": "seal", "label": "阻水：ALD Al₂O₃\nWVTR ↓ 3 个量级"},
+    {"id": "pin", "label": "锚定：晶界钝化\n抬高迁移势垒"}
+  ],
+  "edges": [
+    {"from": "h2o", "to": "hyd", "label": "扩散"},
+    {"from": "hyd", "to": "q"},
+    {"from": "q", "to": "esc", "label": "低温段"},
+    {"from": "q", "to": "mig", "label": "中温段"},
+    {"from": "q", "to": "pbi", "label": "高温段"},
+    {"from": "esc", "to": "loss"},
+    {"from": "mig", "to": "loss"},
+    {"from": "pbi", "to": "loss"},
+    {"from": "seal", "to": "h2o", "label": "切断入口", "style": "dashed"},
+    {"from": "pin", "to": "mig", "label": "抬高势垒", "style": "dashed"}
+  ],
+  "groups": [
+    {"label": "降解链", "nodes": ["h2o", "hyd", "q"]},
+    {"label": "三条并行路径", "nodes": ["esc", "mig", "pbi"]},
+    {"label": "本文的两处干预", "nodes": ["seal", "pin"]}
+  ]
+}

@@ -1,0 +1,5 @@
+[
+ { "id": "arr", "tex": "k(T) = A\\,\\exp\\!\\left(-\\frac{E_a}{k_{\\mathrm{B}}T}\\right)", "size": 22 },
+ { "id": "wvtr", "tex": "\\mathrm{WVTR} = \\frac{D\\,S\\,\\Delta p}{L}\\,,\\qquad t_{\\mathrm{lag}} = \\frac{L^{2}}{6D}", "size": 21 },
+ { "id": "t80", "tex": "\\eta(t)/\\eta_0 = \\exp\\!\\left[-(t/\\tau)^{\\beta}\\right],\\quad t_{80} = \\tau\\,(\\ln 1.25)^{1/\\beta}", "size": 20 }
+]

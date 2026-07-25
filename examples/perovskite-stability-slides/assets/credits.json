@@ -1,0 +1,47 @@
+{
+  "perovskite_solar_cell_2.png": {
+    "title": "Perovskite solar cell architectures 1",
+    "creator": "Sevhab",
+    "license": "CC BY-SA",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "source_page": "https://commons.wikimedia.org/w/index.php?curid=35719179",
+    "provider": "wikimedia",
+    "query": "perovskite solar cell"
+  },
+  "solar_panel_array_field_1.jpg": {
+    "title": "Peterson Middle School's Solar Panels",
+    "creator": "Editboi101",
+    "license": "CC BY-SA",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "source_page": "https://commons.wikimedia.org/w/index.php?curid=75026646",
+    "provider": "wikimedia",
+    "query": "solar panel array field"
+  },
+  "solar_panel_array_field_2.jpg": {
+    "title": "Black Rock Solar educational field trip at Pyramid Lake Museum and Visitor Center",
+    "creator": "Black Rock Solar",
+    "license": "CC BY",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/",
+    "source_page": "https://www.flickr.com/photos/39145569@N07/8553361852",
+    "provider": "flickr",
+    "query": "solar panel array field"
+  },
+  "spin_coating_laboratory_1.png": {
+    "title": "Mikhaylov Timofey Andeevich Tomsk State University",
+    "creator": "Михайлов Тимофей",
+    "license": "CC BY",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "source_page": "https://commons.wikimedia.org/w/index.php?curid=79258009",
+    "provider": "wikimedia",
+    "query": "spin coating laboratory"
+  },
+  "encapsulation_lamination_1.jpg": {
+    "title": "Fluorescent vs non-fluorescent EPE solar panel encapsulant comparison",
+    "creator": "Radiotrefoil",
+    "license": "CC BY-SA",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "source_page": "https://commons.wikimedia.org/w/index.php?curid=139436910",
+    "provider": "wikimedia",
+    "query": "encapsulation lamination glass"
+  }
+}

@@ -28,6 +28,9 @@ const FOOTER_Y = 7.06;        // 页脚基线
 const CONTENT_BOTTOM = 6.88;  // 内容区底界
 const GAP = 0.26;             // 块间默认间距
 const FILL_MIN = 0.62;       // 内容页填充率下限:低于此值发"页面太空"警告
+const SOURCE_BASE = 6.98;    // 页内来源行底沿(固定;多行向上生长)
+const SOURCE_LH = 0.28;      // 来源行行高
+const SOURCE_GAP = 0.16;     // 来源行与正文的净空
 
 // ---------- 字阶(pt,13.33in 画布) ----------
 const T = {
@@ -66,6 +69,19 @@ const THEMES = {
     onDark: "FFFFFF", onDarkSub: "E6BEB4",
   },
 };
+
+// ---------- 背景层:同色浓度阶梯 ----------
+// 拆两份真实汇报得到的唯一背景语法:一块实色 + 一片同色系 6%–12% 浓度的区域
+// (lis 的 #F8F0F1 = 主色 6% 压白;mos2 结束页满版图最暗只到 223/255 ≈ 12%)。
+// 它们的蜂窝网格与地标剪影**不学**:规则六边形正是 AI 生成幻灯最典型的背景签名,
+// 地标是机构专属、塞进通用模板就是错的。只抄浓度与构图,不抄图案。
+//
+// 实现上必须是**真渐变**,不能用浓度阶梯拼。试过阶梯(宽度递增 + 浓度递减),
+// 150 dpi 下实测相邻级差 ΔRGB 达 (5,12,12),肉眼直接读成条纹——那正是我们要躲的色块。
+// pptxgenjs 没有渐变 API,所以画一个纯色矩形当锚点,由 postProcess 把
+// <a:solidFill> 换成 <a:gradFill>(与注入切换效果、图表中文字体同一条路子)。
+const FADE_TAG = "skfade:";
+const FADE_SPAN = { side: 3.4, band: 1.9 };   // 侧向/纵向的化开距离(in)
 
 // 图表系列色板:主色→强调色→暖色→中性,保证 4 系列内可区分且与页面同调。
 // 超过 4 系列说明该换图型(见 references/charts.md),不再往后编色。
@@ -287,6 +303,7 @@ class Deck {
       transition: this.meta.transition ?? "fade",
       cjkFont: this.hasChart ? this.fonts.hans : null,
     });
+    this.warns = [...new Set(this.warns)];
     if (this.warns.length) {
       console.warn("slidekit 布局警告(建议处理):");
       this.warns.forEach(w => console.warn("  - " + w));
@@ -333,6 +350,31 @@ class Deck {
   // 固定间距在 42pt 下会让标尺线贴住末行字,读起来像下划线而不是独立元素。
   _rulerGap(size) { return 0.24 + (size / 72) * 0.38; }
 
+  // 浓度阶梯:从 anchor 处最浓、沿 dir 化开。
+  // bleed 是首级向实色块内的搭接量,用来消掉半像素接缝——因此调用顺序必须是
+  // _fade 在前、实色块在后,让实色块盖住搭接的那一点。
+  // 全部取 th.primary + transparency,零硬编码色值:换主题背景自动跟着换,
+  // 这正是位图背景做不到的事。
+  _fade(ctx, anchor, dir, o = {}) {
+    const th = this.theme, R = this.pres.shapes.RECTANGLE;
+    const span = o.span || FADE_SPAN[dir === "right" ? "side" : "band"];
+    const peak = o.peak != null ? o.peak : 12;
+    const bleed = o.bleed != null ? o.bleed : 0.02;
+    const color = o.color || th.primary;
+    let box;
+    if (dir === "right") box = { x: anchor - bleed, y: 0, w: span + bleed, h: H };
+    else if (dir === "up") box = { x: 0, y: anchor - span, w: W, h: span + bleed };
+    else box = { x: 0, y: anchor - bleed, w: W, h: span + bleed };
+    // 只画一个形状,填充留给 postProcess 换成真渐变。
+    // 这里先给纯色是为了让 pptxgenjs 正常写出 <a:solidFill>,给注入留一个锚点;
+    // objectName 是找到它的唯一凭据。
+    ctx.slide.addShape(R, {
+      ...box, line: { type: "none" },
+      fill: { color, transparency: 100 - peak },
+      objectName: `${FADE_TAG}${dir}:${color}:${peak}`,
+    });
+  }
+
   // 短标尺线:封面/结束页/致谢页共用,与目录页那条同族
   _ruler(ctx, x, y, w, color) {
     ctx.slide.addShape(this.pres.shapes.RECTANGLE,
@@ -375,6 +417,8 @@ class Deck {
   _coverSplit(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
     const BW = 4.52, PX = 5.02, PW = W - PX - M;
+    s.background = { color: th.wash };
+    this._fade(ctx, BW, "right");     // 必须在实色块之前:让实色块盖住搭接
     s.addShape(R, { x: 0, y: 0, w: BW, h: H, fill: { color: th.primary }, line: { type: "none" } });
     const bx = 0.62, bw = BW - bx - 0.6;
     if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 12, color: th.onDark, bold: true, charSpacing: 3 }),
@@ -399,7 +443,7 @@ class Deck {
       s.addText(this.runs(m.subtitle, { fontSize: 16, color: th.muted }),
         { x: PX, y, w: PW, h: 0.4, margin: 0, valign: "middle" });
     }
-    s.addShape(R, { x: PX, y: 5.62, w: PW, h: 0.012, fill: { color: th.line }, line: { type: "none" } });
+    s.addShape(R, { x: BW, y: 5.62, w: W - M - BW, h: 0.012, fill: { color: th.line }, line: { type: "none" } });
     this._infoRows(ctx, {
       x: PX, y: 5.86, w: PW,
       rows: [[this.L.advisor, m.advisor], ["", m.advisor ? null : m.org]],
@@ -415,6 +459,8 @@ class Deck {
   _coverPlate(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
     const bandY = 5.62;
+    s.background = { color: th.wash };
+    this._fade(ctx, bandY, "up");
     if (this.brand.logo) {
       const d = imgSize(this.brand.logo), h = 0.62, w = h * d.w / d.h;
       s.addImage({ path: this.brand.logo, x: M, y: 0.58, w, h });
@@ -470,6 +516,9 @@ class Deck {
       `请缩短题名或改用 coverStyle: "split"`);
     const hasSub = !!(m.subtitle || m.occasion);
     const bandH = Math.max(3.0, t.h + (hasSub ? 1.5 : 0.9) + 0.9);
+    s.background = { color: th.wash };
+    this._fade(ctx, bandTop, "up", { span: 0.75, peak: 9 });
+    this._fade(ctx, bandTop + bandH, "down", { span: 0.75, peak: 9 });
     s.addShape(R, { x: 0, y: bandTop, w: W, h: bandH, fill: { color: th.primary }, line: { type: "none" } });
     if (this.brand.seal) {
       const d = imgSize(this.brand.seal), sw = sealH * d.w / d.h;
@@ -605,12 +654,45 @@ class Deck {
     const s = ctx.slide;
     this._brandCorner(ctx);
     const top = this._header(ctx, a);
-    const box = { x: M, y: top, w: CW, h: CONTENT_BOTTOM - top };
+    const srcH = this._sourceLine(ctx, a.source);
+    const box = { x: M, y: top, w: CW, h: CONTENT_BOTTOM - srcH - top };
     this._renderBlocks(ctx, a.blocks || [], box, 1, true);
     this._footer(ctx);
     if (a.notes) s.addNotes(a.notes);
     if (a.appendix) { // 附录页:kicker 前加"附录"标识由调用方在 kicker 传入
     }
+  }
+
+  // ---------- 页内文献/数据来源行 ----------
+  // 来源标注属于**页面**,不属于内容流。过去让作者用 callout 块写,它就跟着栏内
+  // 纵向流走,落在右栏中部——读者在正文里撞见一行灰字来源,既打断论证又抢注意力。
+  // 学术版式的惯例是把它压到页底、与正文用一条细线隔开:要看的人低头就找得到,
+  // 不看的人完全不受影响。
+  // 返回它占掉的高度,由 _page 从内容区里扣除,保证正文永远不会压到它。
+  // 版面上它与页码共用右边缘(W - M),叠成页脚区的第二行——**右对齐本身就是
+  // "这是注不是正文"的信号**,所以不加前缀标签、不加分隔线:拆过的两份真实汇报
+  // 都没有 "来源:"/"Ref." 这类引导词,也都没有分隔线,加了反而给页面装上双层底框。
+  // 字号 12pt 对齐 T.ref(参考文献页同号);颜色用 muted 不用 faint——
+  // faint 在白底上对比度只有 2.6:1(AA 线 4.5:1),投影时这行等于没写。
+  _sourceLine(ctx, source) {
+    if (!source) return 0;
+    const th = this.theme, s = ctx.slide;
+    const list = (Array.isArray(source) ? source : [source]).filter(Boolean);
+    if (!list.length) return 0;
+    const text = list.join(this.lang === "zh" ? "；" : "; ");
+    const size = 12;
+    const lines = wrapCount(text, size, CW);
+    // 不截断:静默丢掉一条文献是署名缺失,不是排版问题。让它变丑并报警,
+    // 与块布局"降字仍溢出就警告、绝不裁内容"是同一条纪律。
+    if (lines > 2) this.warns.push(
+      `页 ${ctx.no} 的 source 占 ${lines} 行(上限 2)——页底来源行是查证入口,不是文献表。` +
+      `只留最关键的一两条(如 "Nat. Chem. 17, 614-623 (2025)"),完整著录放 d.refs();` +
+      `一页多图来自不同文献时,改用各自 figure 块的 credit`);
+    const h = lines * SOURCE_LH;
+    const y = SOURCE_BASE - h;                 // 底沿固定,多行向上长
+    s.addText(this.runs(text, { fontSize: size, color: th.muted }),
+      { x: M, y, w: CW, h, margin: 0, align: "right", valign: "middle", lineSpacingMultiple: 1.16 });
+    return CONTENT_BOTTOM - y + SOURCE_GAP;
   }
 
   // ---------- 块布局引擎:纵向流式,先测量后绘制,超高整体降字号 ----------
@@ -855,6 +937,11 @@ class Deck {
           x, y: yy, w: cw, h: box.h - (yy - box.y), margin: 0, align: "center", lineSpacingMultiple: 1.2 });
       });
     } else if (t === "callout") {
+      // 来源标注属于页面不属于内容流,写成 callout 会跟着栏内纵向流走、落在栏中部
+      if (b.label && /^(来源|数据来源|文献|出处|Source|Ref\.?|Reference)/i.test(b.label)) this.warns.push(
+        `页 ${ctx.no} 用 callout 写来源标注——来源属于页面不属于内容流,` +
+        `会跟着栏内流落在栏中部。改用 d.page({ source: "…" })`);
+
       // 左侧竖线 + 强调色标签:不画框、不填色、不用胶囊 chip
       const rule = b.tone === "warn" ? th.warm : th.accent;
       const txtColor = b.tone === "warn" ? th.muted : th.ink;
@@ -1042,6 +1129,7 @@ class Deck {
   // 让观众盯着一句客套话十分钟,takeaway 槽位放最想被记住的那句结论。
   _closing(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
+    this._fade(ctx, 7.44, "up", { span: 1.75, peak: 8 });
     this._brandCorner(ctx);
     const main = a.main || KINDS[this.kind].closing[this.lang] || this.L.closingMain;
     const t = this._measureTitle(main, 34, CW);
@@ -1061,22 +1149,26 @@ class Deck {
         { x: M, y, w: CW, h: 0.45, margin: 0, valign: "middle" });
     }
 
-    s.addShape(R, { x: M, y: 5.30, w: CW, h: 0.012, fill: { color: th.line }, line: { type: "none" } });
+    // 三级消隐线:实 1.50in → 中 3.20in → 虚 7.19in。y=5.62 与 plate 封面色带上沿、
+    // split 封面信息区分界线是同一条——封面在这条线上是"面",结束页缩成一条消散的线。
+    s.addShape(R, { x: M, y: 5.615, w: 1.50, h: 0.030, fill: { color: th.primary }, line: { type: "none" } });
+    s.addShape(R, { x: M + 1.50, y: 5.624, w: 3.20, h: 0.012, fill: { color: th.line }, line: { type: "none" } });
+    s.addShape(R, { x: M + 4.70, y: 5.627, w: CW - 4.70, h: 0.006, fill: { color: th.washBorder }, line: { type: "none" } });
     const cols = [];
     if (a.contact) cols.push(["联系方式", a.contact]);
     for (const [k, v] of (a.links || [])) cols.push([k, v]);
     if (!cols.length && m.org) cols.push(["单位", m.org]);
     const cw = 3.6;
     cols.slice(0, 3).forEach(([k, v], i) => {
-      this._infoRows(ctx, { x: M + i * (cw + 0.4), y: 5.56, w: cw, rows: [[k, v]] });
+      this._infoRows(ctx, { x: M + i * (cw + 0.4), y: 5.86, w: cw, rows: [[k, v]] });
     });
     if (a.qr && fs.existsSync(a.qr)) {
-      s.addImage({ path: a.qr, x: W - M - 0.95, y: 5.46, w: 0.95, h: 0.95 });
+      s.addImage({ path: a.qr, x: W - M - 0.95, y: 5.78, w: 0.95, h: 0.95 });
       if (a.qrNote) s.addText(this.runs(a.qrNote, { fontSize: 10.5, color: th.muted }),
-        { x: W - M - 1.9, y: 6.46, w: 1.9, h: 0.28, margin: 0, align: "right", valign: "middle" });
+        { x: W - M - 1.9, y: 6.78, w: 1.9, h: 0.28, margin: 0, align: "right", valign: "middle" });
     }
     // 底部细带:与封面的整块色形成一厚一薄的呼应
-    s.addShape(R, { x: 0, y: H - 0.055, w: W, h: 0.055, fill: { color: th.primary }, line: { type: "none" } });
+    s.addShape(R, { x: 0, y: 7.44, w: W, h: 0.06, fill: { color: th.primary }, line: { type: "none" } });
     if (a.notes) s.addNotes(a.notes);
   }
 
@@ -1085,6 +1177,9 @@ class Deck {
   // 看着像内容页。此页走内容页骨架(同网格、同页眉页脚),与封面刻意区别开。
   _ack(ctx, a) {
     const th = this.theme, s = ctx.slide, R = this.pres.shapes.RECTANGLE;
+    // 与封面同一把梯子、同一个色、同一种衰减,但**没有实色块**:
+    // 封面是"面",致谢是"面的影子"。不设 background,保持与内容页同骨架。
+    this._fade(ctx, 0, "down", { span: 2.6, bleed: 0 });
     this._brandCorner(ctx);
     s.addText(this.runs(this.L.ack, { fontSize: 30, color: th.primary, bold: true, charSpacing: this.lang === "zh" ? 6 : 0 }),
       { x: M, y: 0.62, w: 6, h: 0.6, margin: 0 });
@@ -1114,6 +1209,7 @@ class Deck {
     });
     if (a.group) s.addText(this.runs(a.group, { fontSize: 13, color: th.muted }),
       { x: M, y: 6.16, w: CW, h: 0.32, margin: 0, valign: "middle" });
+    s.addShape(R, { x: 0, y: 7.44, w: W, h: 0.06, fill: { color: th.primary }, line: { type: "none" } });
     this._footer(ctx);
     if (a.notes) s.addNotes(a.notes);
   }
@@ -1134,7 +1230,6 @@ const TRANSITIONS = {
 async function postProcess(fileName, { transition, cjkFont }) {
   const frag = transition && transition !== "none" ? TRANSITIONS[transition] : null;
   if (transition && transition !== "none" && !frag) console.warn(`slidekit: 未知放映效果 ${transition},已跳过`);
-  if (!frag && !cjkFont) return;
   let JSZip;
   try { JSZip = require("jszip"); } catch { console.warn("slidekit: 缺 jszip,后处理跳过"); return; }
   const zip = await JSZip.loadAsync(fs.readFileSync(fileName));
@@ -1145,6 +1240,25 @@ async function postProcess(fileName, { transition, cjkFont }) {
       if (xml.includes("<p:transition")) continue;
       zip.file(n, xml.replace("</p:sld>", `<p:transition spd="med">${frag}</p:transition></p:sld>`));
     }
+  }
+  // 背景渐变:把 _fade 留下的纯色锚点换成真 gradFill。
+  // a:lin 的 ang 单位是 1/60000 度,自 x 正向顺时针量:
+  //   0 = 左→右、5400000 = 上→下、16200000 = 下→上。
+  // 起点是最浓的一端(anchor 所在侧),终点 alpha 归零。
+  const ANG = { right: 0, down: 5400000, up: 16200000 };
+  for (const n of Object.keys(zip.files).filter((x) => /^ppt\/slides\/slide\d+\.xml$/.test(x))) {
+    let xml = await zip.file(n).async("string");
+    if (!xml.includes(FADE_TAG)) continue;
+    xml = xml.replace(
+      new RegExp(`(<p:sp>(?:(?!</p:sp>)[\\s\\S])*?name="${FADE_TAG}([a-z]+):([0-9A-Fa-f]{6}):(\\d+)"[\\s\\S]*?)<a:solidFill>[\\s\\S]*?</a:solidFill>`, "g"),
+      (m, head, dir, color, peak) => {
+        const a = Math.round(Number(peak) * 1000);
+        return `${head}<a:gradFill rotWithShape="1"><a:gsLst>` +
+          `<a:gs pos="0"><a:srgbClr val="${color}"><a:alpha val="${a}"/></a:srgbClr></a:gs>` +
+          `<a:gs pos="100000"><a:srgbClr val="${color}"><a:alpha val="0"/></a:srgbClr></a:gs>` +
+          `</a:gsLst><a:lin ang="${ANG[dir] ?? 0}" scaled="0"/></a:gradFill>`;
+      });
+    zip.file(n, xml);
   }
   if (cjkFont) {
     const esc = cjkFont.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
