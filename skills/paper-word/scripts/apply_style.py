@@ -45,6 +45,9 @@ def _is_heading_style(name):
 
 
 def _clear(container):
+    """清空页眉/页脚:必须连表格一起删——只删段落会让残留表格把新内容顶下去。"""
+    for t in list(getattr(container, "tables", [])):
+        t._element.getparent().remove(t._element)
     for p in list(container.paragraphs):
         p._element.getparent().remove(p._element)
     return container.add_paragraph()
@@ -78,6 +81,12 @@ def _set_run_fonts(run_or_style, latin, east):
     rfonts.set(qn("w:ascii"), latin)
     rfonts.set(qn("w:hAnsi"), latin)
     rfonts.set(qn("w:eastAsia"), east)
+    rfonts.set(qn("w:cs"), latin)
+    rfonts.set(qn("w:hint"), "eastAsia")
+    # ECMA-376 里 *Theme 优先于显式字体属性:不删就白设,标题会渲染成 Calibri
+    for attr in ("w:asciiTheme", "w:hAnsiTheme", "w:eastAsiaTheme", "w:cstheme"):
+        if rfonts.get(qn(attr)) is not None:
+            del rfonts.attrib[qn(attr)]
 
 
 def _bottom_border(par, color=PKU_RED, sz_eighth_pt=4):
@@ -227,6 +236,21 @@ def _strip_paragraph_borders(doc):
             continue
         for pbdr in ppr.findall(qn("w:pBdr")):
             ppr.remove(pbdr)
+    # 样式级也要清:Title / IntenseQuote 的蓝色下划线定义在 styles.xml,
+    # 只遍历 doc.paragraphs 永远查不到它
+    for style in doc.styles:
+        el = getattr(style, "element", None)
+        if el is None:
+            continue
+        for ppr in el.findall(qn("w:pPr")):
+            for pbdr in ppr.findall(qn("w:pBdr")):
+                ppr.remove(pbdr)
+        for color in el.iter(qn("w:color")):
+            v = color.get(qn("w:val"))
+            if v and v != "auto" and len(v) == 6 and v.upper() != PKU_RED.upper():
+                color.set(qn("w:val"), "000000")
+            if color.get(qn("w:themeColor")) is not None:
+                del color.attrib[qn("w:themeColor")]
 
 
 def _enforce_two_colors(doc):
@@ -235,9 +259,19 @@ def _enforce_two_colors(doc):
     red = PKU_RED.upper()
     body = doc.element.body
     for el in body.iter():
+        # 情形 a:颜色作为属性出现(边框 w:color="…")
         val = el.get(qn("w:color"))
         if val and val != "auto" and len(val) == 6 and val.upper() != red:
             el.set(qn("w:color"), "000000")
+        # 情形 b:<w:color w:val="…"/> 独立元素——字色走这条路,原实现整条漏掉
+        if el.tag == qn("w:color"):
+            v = el.get(qn("w:val"))
+            if v and v != "auto" and len(v) == 6 and v.upper() != red:
+                el.set(qn("w:val"), "000000")
+            if el.get(qn("w:themeColor")) is not None:
+                del el.attrib[qn("w:themeColor")]
+    for hl in list(body.iter(qn("w:highlight"))):   # 荧光底块不属于红黑双色
+        hl.getparent().remove(hl)
     for shd in body.iter(qn("w:shd")):
         fill = shd.get(qn("w:fill"))
         if fill and fill.lower() not in ("auto", "ffffff"):
@@ -259,7 +293,12 @@ def apply_style(doc_path, title, logo_path=DEFAULT_LOGO, out_path=None):
         # --- 页眉：logo 左 + 标题右（右对齐 tab stop 到右边距处）---
         header_par = _clear(section.header)
         header_par.paragraph_format.tab_stops.clear_all()
-        usable = section.page_width - section.left_margin - section.right_margin
+        # pandoc 等外部工具产出的 docx 可能不带页面尺寸,相减会 TypeError
+        from docx.shared import Cm as _Cm
+        pw = section.page_width or _Cm(21.0)
+        lm = section.left_margin or _Cm(2.6)
+        rm = section.right_margin or _Cm(2.6)
+        usable = pw - lm - rm
         header_par.paragraph_format.tab_stops.add_tab_stop(usable, WD_TAB_ALIGNMENT.RIGHT)
 
         logo_run = header_par.add_run()
