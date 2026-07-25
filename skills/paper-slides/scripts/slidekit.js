@@ -77,10 +77,22 @@ function seriesColors(th) {
 const LANG = {
   zh: { toc: "目 录", refs: "参考文献", fig: "图", tab: "表",
         presenter: "汇报人", advisor: "指导教师", part: "PART",
-        closingMain: "恳请各位专家批评指正", appendix: "附录" },
+        closingMain: "恳请各位专家批评指正", appendix: "附录",
+        ack: "致 谢", ackPeople: "指导与合作", ackSupport: "项目与平台支持" },
   en: { toc: "Contents", refs: "References", fig: "Fig.", tab: "Table",
         presenter: "Presenter", advisor: "Advisor", part: "PART",
-        closingMain: "Thank You", appendix: "Appendix" },
+        closingMain: "Thank You", appendix: "Appendix",
+        ack: "Acknowledgements", ackPeople: "Supervision & Collaboration",
+        ackSupport: "Funding & Facilities" },
+};
+
+// 场合档位:决定封面变体与结束页主文字。答辩要"恳请指正",组会/文献汇报
+// 用同一句就假了——那是评审场合的话术。
+const KINDS = {
+  defense:     { cover: "split", closing: { zh: "恳请各位专家批评指正", en: "Questions & Comments" } },
+  grant:       { cover: "split", closing: { zh: "恳请各位专家批评指正", en: "Questions & Comments" } },
+  groupmeeting:{ cover: "plate", closing: { zh: "讨论与提问", en: "Discussion" } },
+  paperreading:{ cover: "plate", closing: { zh: "讨论与提问", en: "Discussion" } },
 };
 
 // ---------- 中西文分 run ----------
@@ -148,6 +160,7 @@ class Deck {
       hans: opts.hansFont || (this.lang === "zh" ? "Microsoft YaHei" : "Arial"),
       latin: opts.latinFont || "Arial",
     };
+    this.kind = KINDS[opts.kind] ? opts.kind : "defense";
     this.meta = opts;         // title/shortTitle/occasion/presenter/advisor/org/date
     this.ops = [];            // 延迟渲染:build 时统一执行(目录/页码需要全局信息)
     this.sections = [];       // {title, note, opIndex}
@@ -169,7 +182,10 @@ class Deck {
     const pick = (v, def) => v === false ? null : has(v || def);
     const logo = pick(opts.logo, isPku ? path.join(dir, "pku-logo.png") : null);
     const seal = pick(opts.seal, isPku ? path.join(dir, "pku-seal.png") : null);
-    const style = opts.coverStyle || (seal ? "band" : "plain");
+    const kind = KINDS[opts.kind] || KINDS.defense;
+    const style = opts.coverStyle || kind.cover;
+    // corner 管的是正文/章节/目录各页的右上角标,与封面变体无关。
+    // plate 封面自带放大版横排 logo,靠 _coverPlate 不调 _brandCorner 来避免一页两枚校徽。
     return { logo, seal, style, corner: opts.cornerLogo !== false && !!logo };
   }
 
@@ -179,32 +195,6 @@ class Deck {
     const d = imgSize(this.brand.logo);
     const h = 0.4, w = h * d.w / d.h;
     ctx.slide.addImage({ path: this.brand.logo, x: W - M - w, y: 0.34, w, h });
-  }
-
-  // band 式封面/结束页:白底 + 居中红带 + 印章骑在红带上沿,主文字居中于带内
-  _bandBase(ctx, o) {
-    const th = this.theme, s = ctx.slide, R = this.pres.shapes.RECTANGLE;
-    // 印章整枚坐落白区、下沿切于红带上沿(印章与红带同色,故不让其没入红带)
-    const sealH = 1.4, sealTop = 0.55, bandTop = sealTop + sealH, bandH = 3.3;
-    s.addShape(R, { x: 0, y: bandTop, w: W, h: bandH, fill: { color: th.primary }, line: { type: "none" } });
-    if (this.brand.seal) {
-      const d = imgSize(this.brand.seal), sw = sealH * d.w / d.h;
-      s.addImage({ path: this.brand.seal, x: (W - sw) / 2, y: sealTop, w: sw, h: sealH });
-    }
-    s.addText(this.runs(o.main, { fontSize: o.mainSize || T.coverTitle, color: th.onDark, bold: true, align: "center" }),
-      { x: 1.0, y: 2.62, w: W - 2.0, h: 1.5, margin: 0, align: "center", valign: "middle", lineSpacingMultiple: 1.12 });
-    if (o.sub) {
-      s.addText(this.runs(o.sub, { fontSize: T.coverSub, color: th.onDarkSub, align: "center" }),
-        { x: 1.0, y: 4.32, w: W - 2.0, h: 0.4, margin: 0, align: "center", valign: "middle" });
-      s.addShape(R, { x: W / 2 - 0.35, y: 4.82, w: 0.7, h: 0.014, fill: { color: th.onDarkSub }, line: { type: "none" } });
-    }
-    let y = 5.98;
-    [o.meta1, o.meta2].filter(Boolean).forEach((ln, i) => {
-      s.addText(this.runs(ln, { fontSize: T.coverMeta, color: i === 0 ? th.ink : th.muted, align: "center" }),
-        { x: 1.0, y, w: W - 2.0, h: 0.36, margin: 0, align: "center", valign: "middle" });
-      y += 0.42;
-    });
-    if (o.notes) s.addNotes(o.notes);
   }
 
   // 文本 → pptxgenjs run 数组(自动分配中西文字体)
@@ -241,6 +231,8 @@ class Deck {
   }
   page(a) { this.ops.push({ k: "page", a }); }
   refs(list, opts = {}) { this.ops.push({ k: "refs", a: { list, ...opts } }); }
+  // advisor/collab: [[姓名, 贡献说明], …];funding: [[基金名, 编号], …];facility: [平台名, …]
+  acknowledge(a = {}) { this.ops.push({ k: "ack", a }); }
   closing(a = {}) { this.ops.push({ k: "closing", a }); }
 
   // ---------- 构建 ----------
@@ -267,6 +259,7 @@ class Deck {
       else if (op.k === "section") this._section(ctx, op.a);
       else if (op.k === "page") this._page(ctx, op.a);
       else if (op.k === "refs") this._refs(ctx, op.a);
+      else if (op.k === "ack") this._ack(ctx, op.a);
       else if (op.k === "closing") this._closing(ctx, op.a);
     }
     // 真实照片不是可选项:实景类页面(研究对象、装置、应用场景)配真图是专业度的
@@ -276,6 +269,19 @@ class Deck {
       `全篇没有真实照片(0 张来自 credits.json 的实景图)——先用 fetchimg.py 按题目取 CC 许可` +
       `照片配到研究对象/装置/应用场景页(见 SKILL.md 第 1.5 步);` +
       `确实没有合适图片时传 photos:false 显式豁免`);
+    // 场合是中文学术封面的必需项:评审得先知道这是答辩还是组会。
+    // 旧代码里 subtitle 一存在就把 occasion 顶掉了,静默丢失,这里显式兜住。
+    if (!this.meta.occasion) this.warns.push(
+      `封面缺少 occasion(场合)——中文学术封面必须写明"硕士学位论文答辩""组会文献汇报"之类,` +
+      `否则评审无从判断汇报性质`);
+    if ((this.kind === "defense" || this.kind === "grant") && !this.ops.some(o => o.k === "ack")) {
+      this.warns.push(`${this.kind} 场合缺少致谢页——答辩/结题的固定动作是致谢导师、合作者与基金,` +
+        `用 d.acknowledge({advisor, collab, funding, facility}) 补在 refs 之后`);
+    }
+    const cl = this.ops.find(o => o.k === "closing");
+    if (cl && !cl.a.takeaway) this.warns.push(
+      `结束页没有 takeaway——Q&A 全程停在这一页,只写一句客套话等于浪费它;` +
+      `传 closing({takeaway: "最想被记住的那句结论"})`);
     await pres.writeFile({ fileName });
     await postProcess(fileName, {
       transition: this.meta.transition ?? "fade",
@@ -323,40 +329,202 @@ class Deck {
   }
 
   // ---------- 封面 ----------
-  _cover(ctx, a) {
-    const th = this.theme, s = ctx.slide, m = this.meta;
-    if (this.brand.style === "band" && this.brand.seal) {
-      return this._bandBase(ctx, {
-        main: m.title, mainSize: a.titleSize || T.coverTitle,
-        sub: m.subtitle || m.occasion,
-        meta1: [
-          m.presenter ? `${this.L.presenter}:${m.presenter}` : null,
-          m.advisor ? `${this.L.advisor}:${m.advisor}` : null,
-        ].filter(Boolean).join("     "),
-        meta2: [m.org, m.date].filter(Boolean).join("  ·  "),
-        notes: a.notes,
-      });
+  // 标题块到标尺线的净空。CJK 实际行高高于 _measureTitle 用的 1.16 估值,
+  // 固定间距在 42pt 下会让标尺线贴住末行字,读起来像下划线而不是独立元素。
+  _rulerGap(size) { return 0.24 + (size / 72) * 0.38; }
+
+  // 短标尺线:封面/结束页/致谢页共用,与目录页那条同族
+  _ruler(ctx, x, y, w, color) {
+    ctx.slide.addShape(this.pres.shapes.RECTANGLE,
+      { x, y, w, h: 0.055, fill: { color }, line: { type: "none" } });
+  }
+
+  // 标签—值两级信息区。封面信息不能用空格拼一行居中:
+  // 中西文分 run 后空格宽度不可靠,"汇报人"与"指导教师"字数不同,冒号必然参差。
+  _infoRows(ctx, o) {
+    const th = this.theme, s = ctx.slide;
+    let y = o.y;
+    for (const [label, value] of o.rows) {
+      if (!value) continue;
+      s.addText(this.runs(label, { fontSize: 11, color: o.onDark ? th.onDarkSub : th.muted, charSpacing: 1 }),
+        { x: o.x, y, w: o.w, h: 0.22, margin: 0, align: o.align || "left", valign: "middle" });
+      s.addText(this.runs(value, { fontSize: 14, color: o.onDark ? th.onDark : th.ink }),
+        { x: o.x, y: y + 0.22, w: o.w, h: 0.3, margin: 0, align: o.align || "left", valign: "middle" });
+      y += 0.62;
     }
-    s.background = { color: th.primary };
-    if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 13, color: th.onDarkSub, bold: true, charSpacing: 3.4 }), {
-      x: M, y: 0.78, w: CW, h: 0.4, margin: 0, valign: "middle" });
-    // 主标题
+    return y - o.y;
+  }
+
+  // 标题实测高度。封面过去把标题框写死在固定坐标,三行就压到副题、四行直接穿出;
+  // 内容页早有 wrapCount 测量,封面反倒开了后门——这里补上。
+  _measureTitle(text, size, w) {
+    const lines = wrapCount(text, size, w);
+    return { lines, h: (lines * size * 1.16) / 72 };
+  }
+
+  _cover(ctx, a) {
+    const style = this.brand.style;
+    if (style === "band" && this.brand.seal) return this._coverBand(ctx, a);
+    if (style === "plate") return this._coverPlate(ctx, a);
+    if (style === "solid") return this._coverSolid(ctx, a);
+    return this._coverSplit(ctx, a);
+  }
+
+  // 变体 split(默认):左竖色块 + 右浅底。气场靠字号断层而非色块面积,
+  // 长中文标题在右白区有 7.6in 可用宽度,不像 band 式被挤在带内。
+  _coverSplit(ctx, a) {
+    const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
+    const BW = 4.52, PX = 5.02, PW = W - PX - M;
+    s.addShape(R, { x: 0, y: 0, w: BW, h: H, fill: { color: th.primary }, line: { type: "none" } });
+    const bx = 0.62, bw = BW - bx - 0.6;
+    if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 12, color: th.onDark, bold: true, charSpacing: 3 }),
+      { x: bx, y: 2.6, w: bw, h: 0.34, margin: 0, align: "right", valign: "middle" });
+    this._infoRows(ctx, {
+      x: bx, y: 5.62, w: bw, align: "right", onDark: true,
+      rows: [[this.L.presenter, m.presenter], [m.date ? "日期" : "", m.date]],
+    });
+    this._brandCorner(ctx);
+
+    const tSize = a.titleSize || 42;
+    const t = this._measureTitle(m.title, tSize, PW);
+    if (t.lines >= 4) this.warns.push(`封面标题 ${t.lines} 行(${tSize}pt)——超过三行会压穿副题区,` +
+      `请用 \\n 手动断行、缩短题名,或传 cover({titleSize: 34})`);
+    const tTop = 2.30 + (2.10 - Math.min(t.h, 2.10)) / 2;
+    s.addText(this.runs(m.title, { fontSize: tSize, color: th.primary, bold: true }),
+      { x: PX, y: tTop, w: PW, h: t.h + 0.1, margin: 0, valign: "top", lineSpacingMultiple: 1.16 });
+    let y = tTop + t.h + this._rulerGap(tSize);
+    this._ruler(ctx, PX, y, 1.5, th.primary);
+    y += 0.33;
+    if (m.subtitle) {
+      s.addText(this.runs(m.subtitle, { fontSize: 16, color: th.muted }),
+        { x: PX, y, w: PW, h: 0.4, margin: 0, valign: "middle" });
+    }
+    s.addShape(R, { x: PX, y: 5.62, w: PW, h: 0.012, fill: { color: th.line }, line: { type: "none" } });
+    this._infoRows(ctx, {
+      x: PX, y: 5.86, w: PW,
+      rows: [[this.L.advisor, m.advisor], ["", m.advisor ? null : m.org]],
+    });
+    if (m.advisor && m.org) s.addText(this.runs(m.org, { fontSize: 12.5, color: th.muted }),
+      { x: PX, y: 6.52, w: PW, h: 0.3, margin: 0, valign: "middle" });
+    else if (!m.advisor && m.org) s.addText(this.runs(m.org, { fontSize: 14, color: th.ink }),
+      { x: PX, y: 5.9, w: PW, h: 0.3, margin: 0, valign: "middle" });
+    if (a.notes) s.addNotes(a.notes);
+  }
+
+  // 变体 plate:浅底 + 底部厚色带,适合组会/文献汇报(可挂刊名 logo 与概念图)
+  _coverPlate(ctx, a) {
+    const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
+    const bandY = 5.62;
+    if (this.brand.logo) {
+      const d = imgSize(this.brand.logo), h = 0.62, w = h * d.w / d.h;
+      s.addImage({ path: this.brand.logo, x: M, y: 0.58, w, h });
+    }
+    if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 12, color: th.muted, bold: true, charSpacing: 3 }),
+      { x: M, y: 1.46, w: CW, h: 0.3, margin: 0, valign: "middle" });
+    const tSize = a.titleSize || 32;
+    const t = this._measureTitle(m.title, tSize, CW);
+    if (t.lines >= 4) this.warns.push(`封面标题 ${t.lines} 行(${tSize}pt),plate 变体最多三行`);
+    s.addText(this.runs(m.title, { fontSize: tSize, color: th.primary, bold: true }),
+      { x: M, y: 1.92, w: CW, h: t.h + 0.1, margin: 0, valign: "top", lineSpacingMultiple: 1.16 });
+    let y = 1.92 + t.h + this._rulerGap(tSize);
+    this._ruler(ctx, M, y, 1.5, th.primary);
+    y += 0.32;
+    if (m.subtitle) s.addText(this.runs(m.subtitle, { fontSize: 16, color: th.muted }),
+      { x: M, y, w: CW * 0.62, h: 0.4, margin: 0, valign: "middle" });
+    const jl = this.meta.journalLogo;
+    if (jl && fs.existsSync(jl)) {
+      const d = imgSize(jl), h = 0.85, w = h * d.w / d.h;
+      s.addImage({ path: jl, x: M, y: y + 0.62, w, h });
+    }
+    const art = this.meta.coverArt;
+    // plate 的中段是留给刊名 logo / 概念图的。两个都不给,标题与色带之间会空出
+    // 近 3in 的白——那正是"看着像模版没填完"的样子。
+    if (!(jl && fs.existsSync(jl)) && !(art && fs.existsSync(art))) this.warns.push(
+      `plate 封面缺少 journalLogo 与 coverArt,中段留白约 3in——` +
+      `文献汇报挂刊名 logo,其它场合配一张概念图,或改用 coverStyle: "split"`);
+    if (art && fs.existsSync(art)) {
+      const d = imgSize(art), box = { w: 5.4, h: 3.2 };
+      const sc = Math.min(box.w / d.w, box.h / d.h);
+      const w = d.w * sc, h = d.h * sc;
+      s.addImage({ path: art, x: W - M - w, y: bandY - h + 0.3, w, h });
+    }
+    s.addShape(R, { x: 0, y: bandY, w: W, h: H - bandY, fill: { color: th.primary }, line: { type: "none" } });
+    if (m.presenter) s.addText(this.runs(m.presenter, { fontSize: 20, color: th.onDark, bold: true }),
+      { x: M, y: bandY + 0.42, w: CW * 0.5, h: 0.44, margin: 0, valign: "middle" });
+    const sub = [m.date].filter(Boolean).join("");
+    if (sub) s.addText(this.runs(sub, { fontSize: 13.5, color: th.onDarkSub }),
+      { x: M, y: bandY + 0.94, w: CW * 0.5, h: 0.34, margin: 0, valign: "middle" });
+    if (m.org) s.addText(this.runs(m.org, { fontSize: 13.5, color: th.onDarkSub }),
+      { x: M + CW * 0.5, y: bandY + 0.68, w: CW * 0.5, h: 0.34, margin: 0, align: "right", valign: "middle" });
+    if (a.notes) s.addNotes(a.notes);
+  }
+
+  // 变体 band:白—红—白三段带 + 居中印章(北大官方模版样式)。
+  // 带高与副题起点按标题实测行数推算,不再写死坐标。
+  _coverBand(ctx, a) {
+    const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
+    const sealH = 1.15, sealTop = 0.62, bandTop = sealTop + sealH;
     const tSize = a.titleSize || T.coverTitle;
-    s.addText(this.runs(m.title, { fontSize: tSize, color: th.onDark, bold: true }), {
-      x: M, y: 2.0, w: CW, h: 2.1, margin: 0, valign: "top", lineSpacingMultiple: 1.16 });
-    if (m.subtitle) s.addText(this.runs(m.subtitle, { fontSize: T.coverSub, color: th.onDarkSub }), {
-      x: M, y: 4.15, w: CW, h: 0.4, margin: 0 });
-    // 底部信息区:细线 + 汇报人/导师/单位/日期
+    const t = this._measureTitle(m.title, tSize, W - 2.4);
+    if (t.lines >= 4) this.warns.push(`封面标题 ${t.lines} 行(${tSize}pt)——band 式红带放不下,` +
+      `请缩短题名或改用 coverStyle: "split"`);
+    const hasSub = !!(m.subtitle || m.occasion);
+    const bandH = Math.max(3.0, t.h + (hasSub ? 1.5 : 0.9) + 0.9);
+    s.addShape(R, { x: 0, y: bandTop, w: W, h: bandH, fill: { color: th.primary }, line: { type: "none" } });
+    if (this.brand.seal) {
+      const d = imgSize(this.brand.seal), sw = sealH * d.w / d.h;
+      s.addImage({ path: this.brand.seal, x: (W - sw) / 2, y: sealTop, w: sw, h: sealH });
+    }
+    let y = bandTop + 0.52;
+    // 场合与副题分槽位。旧写法 sub: subtitle || occasion 一旦传了副题,
+    // "硕士学位论文答辩"就整张封面消失——中文封面里场合是必需项,不是备选。
+    if (m.occasion) {
+      s.addText(this.runs(m.occasion, { fontSize: 12, color: th.onDarkSub, bold: true, charSpacing: 3 }),
+        { x: 1.0, y, w: W - 2.0, h: 0.3, margin: 0, align: "center", valign: "middle" });
+      y += 0.42;
+    }
+    s.addText(this.runs(m.title, { fontSize: tSize, color: th.onDark, bold: true }),
+      { x: 1.2, y, w: W - 2.4, h: t.h + 0.1, margin: 0, align: "center", valign: "top", lineSpacingMultiple: 1.16 });
+    y += t.h + 0.22;
+    if (m.subtitle) {
+      s.addText(this.runs(m.subtitle, { fontSize: T.coverSub, color: th.onDarkSub }),
+        { x: 1.0, y, w: W - 2.0, h: 0.36, margin: 0, align: "center", valign: "middle" });
+      y += 0.5;
+    }
+    const below = bandTop + bandH + 0.55;
+    this._infoRows(ctx, {
+      x: (W - 5.0) / 2, y: below, w: 5.0, align: "center",
+      rows: [[this.L.presenter, m.presenter], [this.L.advisor, m.advisor]],
+    });
+    const tail = [m.org, m.date].filter(Boolean).join("  ·  ");
+    if (tail) s.addText(this.runs(tail, { fontSize: T.coverMeta, color: th.muted }),
+      { x: 1.0, y: below + 1.32, w: W - 2.0, h: 0.34, margin: 0, align: "center", valign: "middle" });
+    if (a.notes) s.addNotes(a.notes);
+  }
+
+  // 变体 solid:满版纯色(旧 plain 行为,保留给不需要校徽的场合)
+  _coverSolid(ctx, a) {
+    const th = this.theme, s = ctx.slide, m = this.meta;
+    s.background = { color: th.primary };
+    if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 13, color: th.onDarkSub, bold: true, charSpacing: 3.4 }),
+      { x: M, y: 0.78, w: CW, h: 0.4, margin: 0, valign: "middle" });
+    const tSize = a.titleSize || T.coverTitle;
+    const t = this._measureTitle(m.title, tSize, CW);
+    if (t.lines >= 4) this.warns.push(`封面标题 ${t.lines} 行(${tSize}pt),超过三行请缩短或降字号`);
+    s.addText(this.runs(m.title, { fontSize: tSize, color: th.onDark, bold: true }),
+      { x: M, y: 2.0, w: CW, h: t.h + 0.1, margin: 0, valign: "top", lineSpacingMultiple: 1.16 });
+    let y = 2.0 + t.h + this._rulerGap(tSize);
+    this._ruler(ctx, M, y, 1.5, th.onDarkSub);
+    if (m.subtitle) s.addText(this.runs(m.subtitle, { fontSize: T.coverSub, color: th.onDarkSub }),
+      { x: M, y: y + 0.34, w: CW, h: 0.4, margin: 0, valign: "middle" });
     s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: 5.5, w: CW, h: 0.012, fill: { color: th.onDarkSub }, line: { type: "none" } });
-    const meta1 = [
-      m.presenter ? `${this.L.presenter}:${m.presenter}` : null,
-      m.advisor ? `${this.L.advisor}:${m.advisor}` : null,
-    ].filter(Boolean).join("    ");
-    const meta2 = [m.org, m.date].filter(Boolean).join(" · ");
-    if (meta1) s.addText(this.runs(meta1, { fontSize: T.coverMeta, color: th.onDark }), {
-      x: M, y: 5.72, w: CW, h: 0.36, margin: 0 });
-    s.addText(this.runs(meta2, { fontSize: T.coverMeta, color: th.onDarkSub }), {
-      x: M, y: meta1 ? 6.1 : 5.72, w: CW, h: 0.36, margin: 0 });
+    this._infoRows(ctx, {
+      x: M, y: 5.74, w: CW * 0.5, onDark: true,
+      rows: [[this.L.presenter, m.presenter], [this.L.advisor, m.advisor]],
+    });
+    const tail = [m.org, m.date].filter(Boolean).join("  ·  ");
+    if (tail) s.addText(this.runs(tail, { fontSize: T.coverMeta, color: th.onDarkSub }),
+      { x: M + CW * 0.5, y: 5.86, w: CW * 0.5, h: 0.34, margin: 0, align: "right", valign: "middle" });
     if (a.notes) s.addNotes(a.notes);
   }
 
@@ -866,29 +1034,87 @@ class Deck {
   }
 
   // ---------- 结束页 ----------
+  // 结束页与封面是**镜像呼应**,不是同一张版:封面留"面"(整块色),结束页只留"线"
+  // (底部一道细色带)。旧实现让两者共用 _bandBase,除文字外像素级同构,
+  // 观众看到结束页的第一反应是"翻回封面了"。
+  //
+  // 另一处重做:这是 Q&A 全程停在幕布上的那一页。写"恳请各位专家批评指正"等于
+  // 让观众盯着一句客套话十分钟,takeaway 槽位放最想被记住的那句结论。
   _closing(ctx, a) {
-    const th = this.theme, s = ctx.slide, m = this.meta;
-    if (this.brand.style === "band" && this.brand.seal) {
-      return this._bandBase(ctx, {
-        main: a.main || this.L.closingMain, mainSize: 34,
-        sub: a.sub || m.occasion,
-        meta1: m.org || "",
-        meta2: [a.contact, m.date].filter(Boolean).join("  ·  "),
-        notes: a.notes,
-      });
+    const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
+    this._brandCorner(ctx);
+    const main = a.main || KINDS[this.kind].closing[this.lang] || this.L.closingMain;
+    const t = this._measureTitle(main, 34, CW);
+    const y0 = 2.55;
+    s.addText(this.runs(main, { fontSize: 34, color: th.primary, bold: true }),
+      { x: M, y: y0, w: CW, h: t.h + 0.1, margin: 0, valign: "top", lineSpacingMultiple: 1.16 });
+    let y = y0 + t.h + this._rulerGap(34);
+    this._ruler(ctx, M, y, 1.5, th.primary);
+    y += 0.40;
+    if (a.takeaway) {
+      const tk = this._measureTitle(a.takeaway, 18, 9.5);
+      if (tk.lines > 2) this.warns.push("结束页 takeaway 超过两行——它是一句要被记住的结论,不是段落");
+      s.addText(this.runs(a.takeaway, { fontSize: 18, color: th.ink }),
+        { x: M, y, w: 9.5, h: tk.h + 0.1, margin: 0, valign: "top", lineSpacingMultiple: 1.3 });
+    } else if (a.sub) {
+      s.addText(this.runs(a.sub, { fontSize: 15, color: th.muted }),
+        { x: M, y, w: CW, h: 0.45, margin: 0, valign: "middle" });
     }
-    s.background = { color: th.primary };
-    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: 2.56, w: 1.15, h: 0.028,
-      fill: { color: th.onDarkSub }, line: { type: "none" } });
-    s.addText(this.runs(a.main || this.L.closingMain, { fontSize: 34, color: th.onDark, bold: true }), {
-      x: M, y: 2.9, w: CW, h: 0.9, margin: 0 });
-    if (a.sub) s.addText(this.runs(a.sub, { fontSize: 15, color: th.onDarkSub }), {
-      x: M, y: 3.95, w: CW, h: 0.45, margin: 0 });
-    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: 5.5, w: CW, h: 0.012,
-      fill: { color: th.onDarkSub }, line: { type: "none" } });
-    const meta2 = [m.org, a.contact, m.date].filter(Boolean).join("  ·  ");
-    s.addText(this.runs(meta2, { fontSize: 13, color: th.onDarkSub }), {
-      x: M, y: 5.7, w: CW, h: 0.36, margin: 0 });
+
+    s.addShape(R, { x: M, y: 5.30, w: CW, h: 0.012, fill: { color: th.line }, line: { type: "none" } });
+    const cols = [];
+    if (a.contact) cols.push(["联系方式", a.contact]);
+    for (const [k, v] of (a.links || [])) cols.push([k, v]);
+    if (!cols.length && m.org) cols.push(["单位", m.org]);
+    const cw = 3.6;
+    cols.slice(0, 3).forEach(([k, v], i) => {
+      this._infoRows(ctx, { x: M + i * (cw + 0.4), y: 5.56, w: cw, rows: [[k, v]] });
+    });
+    if (a.qr && fs.existsSync(a.qr)) {
+      s.addImage({ path: a.qr, x: W - M - 0.95, y: 5.46, w: 0.95, h: 0.95 });
+      if (a.qrNote) s.addText(this.runs(a.qrNote, { fontSize: 10.5, color: th.muted }),
+        { x: W - M - 1.9, y: 6.46, w: 1.9, h: 0.28, margin: 0, align: "right", valign: "middle" });
+    }
+    // 底部细带:与封面的整块色形成一厚一薄的呼应
+    s.addShape(R, { x: 0, y: H - 0.055, w: W, h: 0.055, fill: { color: th.primary }, line: { type: "none" } });
+    if (a.notes) s.addNotes(a.notes);
+  }
+
+  // ---------- 致谢页 ----------
+  // 答辩/结题/基金汇报的固定动作。过去只能用 d.page() 硬凑,一凑就写成 bullets 列表、
+  // 看着像内容页。此页走内容页骨架(同网格、同页眉页脚),与封面刻意区别开。
+  _ack(ctx, a) {
+    const th = this.theme, s = ctx.slide, R = this.pres.shapes.RECTANGLE;
+    this._brandCorner(ctx);
+    s.addText(this.runs(this.L.ack, { fontSize: 30, color: th.primary, bold: true, charSpacing: this.lang === "zh" ? 6 : 0 }),
+      { x: M, y: 0.62, w: 6, h: 0.6, margin: 0 });
+    s.addShape(R, { x: M, y: 1.46, w: 1.15, h: 0.028, fill: { color: th.accent }, line: { type: "none" } });
+
+    const colW = (CW - 0.45) / 2;
+    const left = [];
+    for (const [name, role] of (a.advisor || [])) left.push([name, role, true]);
+    for (const [name, role] of (a.collab || [])) left.push([name, role, false]);
+    const right = [];
+    for (const [name, no] of (a.funding || [])) right.push([name, no, true]);
+    for (const f of (a.facility || [])) right.push([f, "", false]);
+
+    [[left, this.L.ackPeople, M], [right, this.L.ackSupport, M + colW + 0.45]].forEach(([items, head, x]) => {
+      if (!items.length) return;
+      s.addShape(R, { x, y: 1.98, w: colW, h: 0.02, fill: { color: th.line }, line: { type: "none" } });
+      s.addText(this.runs(head, { fontSize: 12, color: th.muted, bold: true, charSpacing: 2 }),
+        { x, y: 2.06, w: colW, h: 0.3, margin: 0, valign: "middle" });
+      let y = 2.52;
+      for (const [name, note, strong] of items) {
+        s.addText(this.runs(name, { fontSize: 15, color: th.ink, bold: strong }),
+          { x, y, w: colW, h: 0.3, margin: 0, valign: "middle" });
+        if (note) s.addText(this.runs(note, { fontSize: 12, color: th.muted }),
+          { x, y: y + 0.30, w: colW, h: 0.28, margin: 0, valign: "middle" });
+        y += note ? 0.70 : 0.44;
+      }
+    });
+    if (a.group) s.addText(this.runs(a.group, { fontSize: 13, color: th.muted }),
+      { x: M, y: 6.16, w: CW, h: 0.32, margin: 0, valign: "middle" });
+    this._footer(ctx);
     if (a.notes) s.addNotes(a.notes);
   }
 }

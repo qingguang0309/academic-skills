@@ -281,6 +281,19 @@ d.refs([
   "Bylesjö, M., Rantalainen, M., Cloarec, O., et al. (2006). OPLS discriminant analysis: combining the strengths of PLS-DA and SIMCA classification. Journal of Chemometrics, 20, 341–351.",
 ]);
 
-d.closing({ contact: "liming@pku.edu.cn", notes: "结束页；细节问题退回结论页或对应页码。" });
+d.acknowledge({
+  advisor: [["王 立 教授", "选题指导与全程把关"]],
+  collab: [["张 华 博士", "HPLC-MS 方法学建立"], ["陈 悦", "三产地样品采集与前处理"]],
+  group: "感谢药物分析课题组全体同学在实验与讨论中的帮助。",
+  funding: [["国家自然科学基金", "22374012"], ["北京大学基础科研种子基金", "BMU2025SEED"]],
+  facility: ["分子材料与纳米加工实验室（MMNL）", "药学院公共仪器平台"],
+  notes: "致谢：念到名字即可，不逐条展开。",
+});
+d.closing({
+  contact: "liming@pku.edu.cn",
+  takeaway: "多甲氧基黄酮应取代橙皮苷，成为陈皮的质量标志物。",
+  links: [["数据与代码", "github.com/liming/citri-flavone"]],
+  notes: "结束页；细节问题退回结论页或对应页码。",
+});
 
 d.build("tcm_defense.pptx");
