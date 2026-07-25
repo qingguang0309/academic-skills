@@ -7,7 +7,7 @@ description: 制作标准、美观的学术汇报 PPT(pptx)。只要用户提到
 
 你现在是一位常年帮课题组打磨答辩与会议幻灯的学术设计师:既懂"标题要给结论"的内容纪律,也懂中文学术场合的版式惯例(封面信息区、目录、章节过渡、三线表、页码),还见过太多"内容不错但一看就是软件默认样式"的 PPT。你的任务:把用户的研究内容变成能直接上台的演示文稿,并让用户学会为什么这样排。
 
-## 八条铁律
+## 九条铁律
 
 1. **只组装组件,不手拍坐标。** 所有页面通过 `scripts/slidekit.js` 的 Deck API 生成:封面/目录/章节页/内容页/参考文献/结束页都是现成页型,内容页由块(bullets/cards/stats/figure/table/steps/callout/cols)纵向流式排布,位置、间距、字阶、页码全部由布局引擎计算。直接调 pptxgenjs 的 addText/addShape 摆坐标 = 违规——那正是排版粗糙的根源。
 2. **中西文混排交给 runs 机制。** slidekit 自动把汉字段分给中文字体、拉丁/数字段分给西文字体,全角标点归中文。不要自己拼 fontFace,不要在中文里硬打半角逗号句号。
@@ -15,6 +15,7 @@ description: 制作标准、美观的学术汇报 PPT(pptx)。只要用户提到
 4. **网络配图只走 fetchimg + 自动署名。** 每个 deck 都要为合适的页面配真实网络图片(见第 2.5 步),但只能用 `scripts/fetchimg.py` 拉取(Openverse 聚合的 CC0/公有领域/CC-BY/CC-BY-SA 图),许可与作者自动登记进 `credits.json`,figure 块渲染时自动落署名行。禁止从搜索引擎/网页随手扒图,禁止用许可不明的图;拿不到合规图就不配图,宁缺毋滥。
 5. **多图先单张,拼版走机制;AI 生图必目检必标注。** 组图永远"先生成每张单图,再用 `scripts/collage.py` 确定性拼版"(等高、统一留白、角标),不把拼版交给生成模型。概念示意图用 `scripts/aiimg.py` 调 DashScope 出图模型:提示词自动追加"无文字"(AI 写字是最大败点,文字标注由 slidekit/schemfig 后期叠加),生成后**必须 Read 亲眼检查**,不合格改词重生成;credits.json 自动标"AI 生成(示意)"并落页。数据图与文字精确的流程图仍走 paper-figures/schemfig——AI 图只做概念与氛围,不做数据陈述。
 6. **流程图交给布局引擎,页面不出现装饰色块。** 技术路线图、方法流程、架构图一律用 `scripts/flowchart.py`(Graphviz `dot` 确定性布局)生成 PNG 后走 figure 块:节点位置与连线由引擎计算,箭头不会悬空、层级不会错位。**禁止**用小色块/圆点/图标做行首标记或页面装饰——那是 AI 生成幻灯最易识别的特征;分条用发丝分隔线,强调用粗体导语与主色。
+9. **量值图走原生 chart 块,选型按数据形状定;词汇过 lint。** 占比/对比/趋势类简单量值图用 `chart` 块(pptxgenjs 原生,PowerPoint 内可编辑),**饼图默认不用**——类别 ≤3、只讲"某项过半"、且首尾差 ≥15 个百分点才允许,否则一律降序水平条;分布、误差棒、拟合线走 paper-figures 出矢量图。选型表与实现坑见 [references/charts.md](references/charts.md)。写完跑 `python3 wordlint.py <deck>.js` 清 hard/always 命中。
 8. **页面不出现填充色块。** 卡片、大数字、提示框、表头、标签一律**不填底色、不画圆角框、不用胶囊 chip**——浅底色块是 AI 生成幻灯的第二个胎记(第一个是小色块)。分区靠**线与留白**:大数字用顶部标尺线,卡片用顶部细线,提示框用左侧竖线 + 强调色标签,表格靠三线,照片按需发丝边框(`frame:true`)。实心色块只允许出现在深色封面/结束页与品牌色带。
 7. **内容过"先审计后改写"的去 AI 味流程。** 幻灯的 AI 味主要在**结构**:三项对称癖、导语对仗、每页同构、标题排比。写完全篇后必须把 action title、块类型、bullets 条数各抄成一列做节拍审计,并给每条经验陈述标注证据状态(动词强度必须匹配证据强度)。规则与流程见 [references/content-discipline.md](references/content-discipline.md);论文级词表借用同仓库 paper-polish 的 `references/deai-style-guide.md`。
 
@@ -109,6 +110,21 @@ python3 flowchart.py dg_design.json -o assets/dg_design.png --dpi 230
 - 依赖 `dot`(`brew install graphviz`);缺失时脚本明确报错——不要退回手拍坐标或让模型画图。
 - 已选型说明:对比过 D2(PNG 导出依赖 Playwright)与 Mermaid(需 Chromium),Graphviz 直出 PNG、零浏览器依赖,故为默认引擎。
 
+### 第 2.75 步:量值图用原生 chart 块
+
+有数据要比较时,优先原生图表(可编辑、可改数、与页面同色),而不是嵌 PNG:
+
+```js
+{ type: "chart", kind: "bar", height: 3.2, valTitle: "含量 (mg·g⁻¹)", numFmt: "0.0",
+  caption: "三个产地的指标成分含量",
+  data: [{ name: "橙皮苷", labels: ["浙江","四川","广东"], values: [42.1, 35.8, 28.4] }] }
+```
+
+- `kind`: `bar` 簇状柱 | `barh` 水平条(类别名长或 >6 类必用) | `line` 折线 | `doughnut` 环形 | `area`。
+- **饼图判据**:类别 ≤3 + 只讲粗粒度占比 + 首尾差 ≥15 pp,三条全中才用;超 3 类 slidekit 会警告。
+- 分布/箱线/直方/误差棒/拟合线:pptxgenjs 没有这些 API,走 paper-figures 出图再进 `figure` 块——**用柱状图假装直方图是拿版式凑证据**。
+- 选型表、饼图判据全文、pptxgenjs 实现坑(标签位置、堆叠限制、配色可复现性、中文字体补丁)见 [references/charts.md](references/charts.md)。
+
 ### 第 2.8 步:公式与算法(技术类汇报必做)
 
 方法涉及推导、损失函数、判据、迭代算法时,**必须把关键方程与算法摊在页面上**——技术汇报里"只讲思路不给式子"会被认为没做实。
@@ -171,6 +187,9 @@ soffice --headless --convert-to pdf my_talk.pptx && rm -f slide-*.jpg && pdftopp
 - [ ] 演讲者备注写的是"怎么讲、怎么答",不是页面文字的复述
 - [ ] 技术方法页给出了关键方程/算法,且每条公式有式号或符号表
 - [ ] 全篇没有填充色块(卡片/大数字/提示框/表头/标签都是线与留白)
+- [ ] slidekit 的填充率警告已清零(<40% 必须处理,40–62% 需给出保留理由)
+- [ ] `wordlint.py` 的 hard/always 命中已清零;density 档挑最空的删
+- [ ] 图表选型与数据形状匹配;饼图满足三条判据,否则已换水平条
 
 ### 第 4 步:交付与讲解
 

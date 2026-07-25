@@ -1,0 +1,4 @@
+[
+ { "id": "ext", "tex": "Y = Y_{\\infty}\\left[1 - \\exp(-k\\,t^{n})\\right]", "size": 22 },
+ { "id": "des", "tex": "D = \\frac{C_{\\mathrm{plant}}}{C_{\\mathrm{solvent}}} = \\exp\\!\\left(-\\frac{\\Delta G}{RT}\\right)", "size": 21 }
+]

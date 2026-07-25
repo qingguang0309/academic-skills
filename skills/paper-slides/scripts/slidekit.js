@@ -27,6 +27,7 @@ const CW = W - 2 * M;         // 内容区宽
 const FOOTER_Y = 7.06;        // 页脚基线
 const CONTENT_BOTTOM = 6.88;  // 内容区底界
 const GAP = 0.26;             // 块间默认间距
+const FILL_MIN = 0.62;       // 内容页填充率下限:低于此值发"页面太空"警告
 
 // ---------- 字阶(pt,13.33in 画布) ----------
 const T = {
@@ -65,6 +66,12 @@ const THEMES = {
     onDark: "FFFFFF", onDarkSub: "E6BEB4",
   },
 };
+
+// 图表系列色板:主色→强调色→暖色→中性,保证 4 系列内可区分且与页面同调。
+// 超过 4 系列说明该换图型(见 references/charts.md),不再往后编色。
+function seriesColors(th) {
+  return [th.primary, th.accent, th.warm, th.muted, th.faint];
+}
 
 // ---------- 语言包 ----------
 const LANG = {
@@ -226,9 +233,11 @@ class Deck {
   // ---------- 页面注册 API ----------
   cover(extra = {}) { this.ops.push({ k: "cover", a: extra }); }
   toc() { this.ops.push({ k: "toc" }); }
-  section(title, note) {
+  // points: [[小标题, 说明], …] 最多 3 条,渲染在章节页下半区——
+  // 章节页不给要点预览就会留大片空白,这是"页面很空"的主要来源之一
+  section(title, note, points) {
     this.sections.push({ title, note });
-    this.ops.push({ k: "section", a: { title, note, idx: this.sections.length } });
+    this.ops.push({ k: "section", a: { title, note, points, idx: this.sections.length } });
   }
   page(a) { this.ops.push({ k: "page", a }); }
   refs(list, opts = {}) { this.ops.push({ k: "refs", a: { list, ...opts } }); }
@@ -261,7 +270,10 @@ class Deck {
       else if (op.k === "closing") this._closing(ctx, op.a);
     }
     await pres.writeFile({ fileName });
-    await addTransitions(fileName, this.meta.transition ?? "fade");
+    await postProcess(fileName, {
+      transition: this.meta.transition ?? "fade",
+      cjkFont: this.hasChart ? this.fonts.hans : null,
+    });
     if (this.warns.length) {
       console.warn("slidekit 布局警告(建议处理):");
       this.warns.forEach(w => console.warn("  - " + w));
@@ -383,7 +395,22 @@ class Deck {
     s.addText(this.runs(a.title, { fontSize: T.sectionTitle, color: th.primary, bold: true }), {
       x: M + 0.24, y: 3.36, w: CW - 0.24, h: 0.66, margin: 0, valign: "middle" });
     if (a.note) s.addText(this.runs(a.note, { fontSize: T.sectionNote, color: th.muted }), {
-      x: M + 0.3, y: 4.12, w: CW - 1.5, h: 0.6, margin: 0, lineSpacingMultiple: 1.25 });
+      x: M + 0.24, y: 4.1, w: CW - 1.5, h: 0.44, margin: 0, lineSpacingMultiple: 1.25 });
+    // 本章要点预览:章节页不再是一句话 + 大片空白;要点给听众"这章会讲什么"的地图
+    if (a.points && a.points.length) {
+      const n = Math.min(a.points.length, 3);
+      const gw = 0.5, cw2 = (CW - gw * (n - 1)) / n;
+      a.points.slice(0, n).forEach((pt, i) => {
+        const x = M + i * (cw2 + gw);
+        s.addShape(this.pres.shapes.RECTANGLE, { x, y: 4.86, w: cw2, h: 0.02,
+          fill: { color: th.line }, line: { type: "none" } });
+        const [head, body] = Array.isArray(pt) ? pt : [pt, ""];
+        s.addText(this.runs(head, { fontSize: 14, color: th.primary, bold: true }), {
+          x, y: 4.98, w: cw2, h: 0.3, margin: 0 });
+        if (body) s.addText(this.runs(body, { fontSize: 12.5, color: th.muted }), {
+          x, y: 5.3, w: cw2, h: 0.68, margin: 0, valign: "top", lineSpacingMultiple: 1.22 });
+      });
+    }
     // 底部全章节导航,当前高亮
     let x = M;
     this.sections.forEach((sec, i) => {
@@ -404,7 +431,7 @@ class Deck {
     this._brandCorner(ctx);
     const top = this._header(ctx, a);
     const box = { x: M, y: top, w: CW, h: CONTENT_BOTTOM - top };
-    this._renderBlocks(ctx, a.blocks || [], box);
+    this._renderBlocks(ctx, a.blocks || [], box, 1, true);
     this._footer(ctx);
     if (a.notes) s.addNotes(a.notes);
     if (a.appendix) { // 附录页:kicker 前加"附录"标识由调用方在 kicker 传入
@@ -412,9 +439,17 @@ class Deck {
   }
 
   // ---------- 块布局引擎:纵向流式,先测量后绘制,超高整体降字号 ----------
-  _renderBlocks(ctx, blocks, box, fontScale = 1) {
+  // 填充率:内容高 / 可用高。低于 FILL_MIN 视为"页面太空",发警告让作者补内容——
+  // 刻意不自动放大字号或拉伸间距:那会破坏全篇字阶一致性,把一个问题换成另一个。
+  _renderBlocks(ctx, blocks, box, fontScale = 1, top = false) {
     const measured = blocks.map(b => this._measure(ctx, b, box.w, fontScale));
     const totalH = measured.reduce((t, m) => t + m.h, 0) + GAP * Math.max(blocks.length - 1, 0);
+    if (top && box.h > 1.5) {
+      const fill = totalH / box.h;
+      if (fill < FILL_MIN) this.warns.push(
+        `页 ${ctx.no} 填充率 ${(fill * 100).toFixed(0)}%(建议 ≥ ${(FILL_MIN * 100).toFixed(0)}%)——内容偏少,` +
+        `考虑:补一张小图/图表、把要点拆成"论断+证据"两层、加一句"本页要回答的问题"、或与相邻页合并`);
+    }
     if (totalH > box.h + 0.02 && fontScale > 0.85) {
       return this._renderBlocks(ctx, blocks, box, fontScale - 0.06);
     }
@@ -496,6 +531,10 @@ class Deck {
         maxH = Math.max(maxH, mh);
       });
       return { h: maxH, ratio, sum, gaps };
+    }
+    if (t === "chart") {
+      const capH = b.caption ? textH(b.caption, T.caption, w) + 0.12 : 0;
+      return { h: (b.height || 3.4) * sc + capH, capH };
     }
     if (t === "formula") {
       const dim = imgSize(b.path);
@@ -655,6 +694,92 @@ class Deck {
       s.addText(this.runs(b.text, { fontSize: this._fs(b.size || T.small, sc), color: txtColor }), {
         x: tx, y: box.y + 0.04, w: box.x + box.w - tx, h: box.h - 0.08,
         margin: 0, valign: "middle", lineSpacingMultiple: 1.22 });
+    } else if (t === "chart") {
+      const { capH } = mz;
+      const chH = box.h - capH;
+      const kind = b.kind || "bar";
+      const isPie = kind === "pie" || kind === "doughnut";
+      // 饼/环每片颜色按索引取 chartColors,索引溢出时库会 Math.random() 取色
+      // → 同一脚本连跑两次得到两组颜色。宁可报错也不交付不可复现的图。
+      const need = isPie ? (b.data[0].labels || []).length : b.data.length;
+      const pal = b.colors || seriesColors(th);
+      // 饼/环 >3 类:角度判别不可靠、标签会压在扇区上。按 charts.md 该换降序水平条
+      if (isPie && need > 3) this.warns.push(
+        `页 ${ctx.no} ${kind} 图有 ${need} 个类别(上限 3)——角度判别在 4 类以上不可靠,` +
+        `改用 kind:"barh" 降序水平条并在端点标数值(见 references/charts.md)`);
+      if (pal.length < need) throw new Error(
+        `chart(${kind}): 需要 ${need} 个颜色但色板只有 ${pal.length} 个。` +
+        `类别/系列过多正是该换图型的信号(见 references/charts.md);或显式传 colors。`);
+      const common = {
+        x: box.x, y: box.y, w: box.w, h: chH,
+        chartColors: pal.slice(0, need),
+        // 这些开关不显式传就等于没传(库内是恒等赋值),必须逐个给 true
+        showLegend: b.legend !== false && (isPie || b.data.length > 1),
+        legendPos: b.legendPos || (isPie ? "r" : "t"),
+        legendFontSize: this._fs(11, sc), legendColor: th.ink,
+        dataLabelFontSize: this._fs(11, sc), dataLabelFontFace: this.fonts.latin,
+        // 不传 shadow:图表默认无阴影,传 {type:'none'} 会拼出非法的 <a:noneShdw>
+      };
+      let opts;
+      if (isPie) {
+        // showValue 与 showPercent 共用同一个 numFmt,同开会把原始值也按百分比格式化
+        const pct = b.showValue ? false : (b.showPercent !== false);
+        opts = { ...common,
+          showPercent: pct, showValue: !!b.showValue,
+          dataLabelColor: "FFFFFF",   // 扇区为中高饱和主题色,白字最稳
+          dataLabelFormatCode: b.numFmt,
+          holeSize: kind === "doughnut" ? Math.min(Math.max(b.holeSize || 58, 1), 90) : undefined,
+          // 环形图的 dataLabelPosition 会被库无条件删除,不传
+        };
+      } else {
+        const horiz = kind === "barh";
+        const isLine = kind === "line" || kind === "area";
+        opts = { ...common,
+          catAxisLabelColor: th.muted, catAxisLabelFontSize: this._fs(11, sc),
+          catAxisLineShow: true, catAxisLineColor: th.line,
+          catAxisMajorTickMark: "none",
+          valAxisLabelColor: th.muted, valAxisLabelFontSize: this._fs(11, sc),
+          valAxisLineShow: false, valAxisMajorTickMark: "none",
+          // 值轴默认带 1pt #888888 粗网格线,是"默认图很丑"的头号原因
+          valGridLine: b.grid === false ? { style: "none" } : { color: th.line, size: 0.5, style: "solid" },
+          catGridLine: { style: "none" },
+          valAxisTitle: b.valTitle, showValAxisTitle: !!b.valTitle,
+          valAxisTitleColor: th.muted, valAxisTitleFontSize: this._fs(11, sc),
+          catAxisTitle: b.catTitle, showCatAxisTitle: !!b.catTitle,
+          catAxisTitleColor: th.muted, catAxisTitleFontSize: this._fs(11, sc),
+          dataLabelColor: th.ink,
+          dataLabelFormatCode: b.numFmt,   // 如 "0.0" 保留一位小数,默认会四舍五入到整数
+        };
+        if (isLine) {
+          opts.lineSize = b.lineSize || 2.2;
+          // 样条插值会凭空造出不存在的极值 = 用平滑伪造数据
+          opts.lineSmooth = false;
+          const pts = (b.data[0].labels || []).length;
+          opts.lineDataSymbol = pts <= 12 ? "circle" : "none";
+          opts.lineDataSymbolSize = 6;
+          opts.showValue = !!b.showValue;
+        } else {
+          opts.barDir = horiz ? "bar" : "col";
+          opts.barGapWidthPct = Math.min(b.gapPct || 60, 500);
+          opts.barOverlapPct = b.overlapPct != null ? b.overlapPct : -8;
+          opts.barGrouping = b.stacked ? (b.percent ? "percentStacked" : "stacked") : "clustered";
+          opts.showValue = b.showValue !== false;
+          // 堆叠只接受 ctr/inBase/inEnd(传 outEnd 会让 PowerPoint 判定文件损坏);
+          // 簇状传 outEnd 会被库静默删掉,索性不传,用 PowerPoint 默认位置
+          if (b.stacked) opts.dataLabelPosition = "ctr";
+          if (b.percent) opts.dataLabelFormatCode = "0%";
+        }
+      }
+      const nameMap = { bar: "BAR", barh: "BAR", pie: "PIE", doughnut: "DOUGHNUT",
+                        line: "LINE", area: "AREA", scatter: "SCATTER", radar: "RADAR" };
+      s.addChart(this.pres.charts[nameMap[kind] || "BAR"], b.data, opts);
+      this.hasChart = true;   // 触发 build 后处理:给图表补中文字体
+      if (b.caption) {
+        this.figN += 1;
+        s.addText(this.runs(`${this.L.fig} ${this.figN}  ${b.caption}`,
+          { fontSize: T.caption, color: th.muted }), {
+          x: box.x, y: box.y + chH + 0.08, w: box.w, h: capH, margin: 0, align: "center" });
+      }
     } else if (t === "formula") {
       const { eqW, eqH } = mz;
       const x = box.x + (box.w - eqW) / 2;
@@ -768,19 +893,34 @@ const TRANSITIONS = {
   wipe: '<p:wipe dir="r"/>',
   push: '<p:push dir="r"/>',
 };
-async function addTransitions(fileName, kind) {
-  if (!kind || kind === "none") return;
-  const frag = TRANSITIONS[kind];
-  if (!frag) { console.warn(`slidekit: 未知放映效果 ${kind},已跳过`); return; }
+// 写盘后处理:一次解包完成两件事
+//   1) 每页注入放映切换(pptxgenjs 无此 API)
+//   2) 给图表文字补 <a:ea>:pptxgenjs 只写 <a:latin>,图表里的中文会被 PowerPoint
+//      回退到"等线",与正文字体不一致——这是原生图表唯一必须打的补丁
+async function postProcess(fileName, { transition, cjkFont }) {
+  const frag = transition && transition !== "none" ? TRANSITIONS[transition] : null;
+  if (transition && transition !== "none" && !frag) console.warn(`slidekit: 未知放映效果 ${transition},已跳过`);
+  if (!frag && !cjkFont) return;
   let JSZip;
-  try { JSZip = require("jszip"); } catch { console.warn("slidekit: 缺 jszip,放映效果跳过"); return; }
+  try { JSZip = require("jszip"); } catch { console.warn("slidekit: 缺 jszip,后处理跳过"); return; }
   const zip = await JSZip.loadAsync(fs.readFileSync(fileName));
-  const slides = Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n));
-  for (const n of slides) {
-    let xml = await zip.file(n).async("string");
-    if (xml.includes("<p:transition")) continue;
-    xml = xml.replace("</p:sld>", `<p:transition spd="med">${frag}</p:transition></p:sld>`);
-    zip.file(n, xml);
+
+  if (frag) {
+    for (const n of Object.keys(zip.files).filter((x) => /^ppt\/slides\/slide\d+\.xml$/.test(x))) {
+      let xml = await zip.file(n).async("string");
+      if (xml.includes("<p:transition")) continue;
+      zip.file(n, xml.replace("</p:sld>", `<p:transition spd="med">${frag}</p:transition></p:sld>`));
+    }
+  }
+  if (cjkFont) {
+    const esc = cjkFont.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    for (const n of Object.keys(zip.files).filter((x) => /^ppt\/charts\/chart\d+\.xml$/.test(x))) {
+      let xml = await zip.file(n).async("string");
+      if (xml.includes("<a:ea ")) continue;
+      xml = xml.replace(/<a:latin typeface="([^"]*)"\s*\/>/g,
+        (m) => `${m}<a:ea typeface="${esc}"/>`);
+      zip.file(n, xml);
+    }
   }
   fs.writeFileSync(fileName, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
 }
