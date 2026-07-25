@@ -151,7 +151,7 @@ class Deck {
     this.meta = opts;         // title/shortTitle/occasion/presenter/advisor/org/date
     this.ops = [];            // 延迟渲染:build 时统一执行(目录/页码需要全局信息)
     this.sections = [];       // {title, note, opIndex}
-    this.figN = 0; this.tabN = 0;
+    this.figN = 0; this.tabN = 0; this.realPhotos = 0; this.hasChart = false;
     this.warns = [];
     this.brand = this._resolveBrand(opts);
   }
@@ -269,6 +269,13 @@ class Deck {
       else if (op.k === "refs") this._refs(ctx, op.a);
       else if (op.k === "closing") this._closing(ctx, op.a);
     }
+    // 真实照片不是可选项:实景类页面(研究对象、装置、应用场景)配真图是专业度的
+    // 硬门槛。找过确实没有合适的,用 new Deck({ photos: false }) 显式豁免——
+    // 让它成为一个决定,而不是一次遗漏。
+    if (this.meta.photos !== false && this.realPhotos === 0) this.warns.push(
+      `全篇没有真实照片(0 张来自 credits.json 的实景图)——先用 fetchimg.py 按题目取 CC 许可` +
+      `照片配到研究对象/装置/应用场景页(见 SKILL.md 第 1.5 步);` +
+      `确实没有合适图片时传 photos:false 显式豁免`);
     await pres.writeFile({ fileName });
     await postProcess(fileName, {
       transition: this.meta.transition ?? "fade",
@@ -625,6 +632,7 @@ class Deck {
         x: x - 0.035, y: box.y - 0.035, w: fit.w + 0.07, h: fit.h + 0.07,
         fill: { type: "none" }, line: { color: th.line, width: 0.75 } });
       s.addImage({ path: b.path, x, y: box.y, w: fit.w, h: fit.h });
+      if (fromRegistry(b.path)) this.realPhotos += 1;   // 用于 build 时的实景图检查
       if (b.caption || credit) {
         let cap;
         if (b.caption) {
@@ -942,8 +950,27 @@ function figureCredit(b) {
   const hit = reg && reg[path.basename(b.path)];
   if (!hit) return "";
   const src = hit.provider === "wikimedia" ? "Wikimedia Commons" : (hit.provider || "");
-  const creator = hit.creator && hit.creator !== "unknown" ? hit.creator : "";
-  return [creator, hit.license, src].filter(Boolean).join(" / ");
+  // 兜底:credits.json 里可能存着 Openverse 的多来源脏串
+  // ("real name: X pl.wiki: Y commons: Z"),署名行放不下,取第一个姓名并限长
+  let who = String(hit.creator || "").replace(/real name:\s*/i, "")
+    .split(/\s+[a-z]*\.?wiki\s*:|\s+commons\s*:/i)[0].replace(/\s+/g, " ").trim();
+  if (who === "unknown") who = "";
+  if (who.length > 29) who = who.slice(0, 28) + "\u2026";
+  return [who, hit.license, src].filter(Boolean).join(" / ");
+}
+
+// 该图片是否登记在同目录 credits.json 里(即 fetchimg/aiimg 取来的、带许可的图)。
+// 只统计 fetchimg 来源:AI 生成图不算"真实照片"。
+function fromRegistry(imgPath) {
+  const dir = path.dirname(imgPath);
+  if (!creditsCache.has(dir)) {
+    let data = null;
+    try { data = JSON.parse(fs.readFileSync(path.join(dir, "credits.json"), "utf8")); } catch { }
+    creditsCache.set(dir, data);
+  }
+  const reg = creditsCache.get(dir);
+  const hit = reg && reg[path.basename(imgPath)];
+  return !!(hit && hit.license && !String(hit.license).includes("AI"));
 }
 
 // ---------- 图片尺寸读取(PNG/JPEG,防变形) ----------

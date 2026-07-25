@@ -12,7 +12,7 @@ description: 制作标准、美观的学术汇报 PPT(pptx)。只要用户提到
 1. **只组装组件,不手拍坐标。** 所有页面通过 `scripts/slidekit.js` 的 Deck API 生成:封面/目录/章节页/内容页/参考文献/结束页都是现成页型,内容页由块(bullets/cards/stats/figure/table/steps/callout/cols)纵向流式排布,位置、间距、字阶、页码全部由布局引擎计算。直接调 pptxgenjs 的 addText/addShape 摆坐标 = 违规——那正是排版粗糙的根源。
 2. **中西文混排交给 runs 机制。** slidekit 自动把汉字段分给中文字体、拉丁/数字段分给西文字体,全角标点归中文。不要自己拼 fontFace,不要在中文里硬打半角逗号句号。
 3. **每页标题是完整结论句(action title)。** 通读全部页标题应当就是完整论证(ghost deck test)。"研究背景"、"实验方法"这类话题词只允许出现在章节过渡页,不允许作内容页标题。
-4. **网络配图只走 fetchimg + 自动署名。** 每个 deck 都要为合适的页面配真实网络图片(见第 2.5 步),但只能用 `scripts/fetchimg.py` 拉取(Openverse 聚合的 CC0/公有领域/CC-BY/CC-BY-SA 图),许可与作者自动登记进 `credits.json`,figure 块渲染时自动落署名行。禁止从搜索引擎/网页随手扒图,禁止用许可不明的图;拿不到合规图就不配图,宁缺毋滥。
+4. **每个 deck 必须有真实照片,且在写脚本之前就取好。** 顺序是**先找图、再写脚本**(第 1.5 步)——不是写完发现空了再补。slidekit 在 `build()` 时检查全篇是否有来自 `credits.json` 的实景图,**0 张就报警**;找过确实没有合适图片时传 `new Deck({ photos: false })` 显式豁免,让它成为一个决定而不是一次遗漏。取图只走 `scripts/fetchimg.py`(见第 2.5 步),但只能用 `scripts/fetchimg.py` 拉取(Openverse 聚合的 CC0/公有领域/CC-BY/CC-BY-SA 图),许可与作者自动登记进 `credits.json`,figure 块渲染时自动落署名行。禁止从搜索引擎/网页随手扒图,禁止用许可不明的图;拿不到合规图就不配图,宁缺毋滥。
 5. **多图先单张,拼版走机制;AI 生图必目检必标注。** 组图永远"先生成每张单图,再用 `scripts/collage.py` 确定性拼版"(等高、统一留白、角标),不把拼版交给生成模型。概念示意图用 `scripts/aiimg.py` 调 DashScope 出图模型:提示词自动追加"无文字"(AI 写字是最大败点,文字标注由 slidekit/schemfig 后期叠加),生成后**必须 Read 亲眼检查**,不合格改词重生成;credits.json 自动标"AI 生成(示意)"并落页。数据图与文字精确的流程图仍走 paper-figures/schemfig——AI 图只做概念与氛围,不做数据陈述。
 6. **流程图交给布局引擎,页面不出现装饰色块。** 技术路线图、方法流程、架构图一律用 `scripts/flowchart.py`(Graphviz `dot` 确定性布局)生成 PNG 后走 figure 块:节点位置与连线由引擎计算,箭头不会悬空、层级不会错位。**禁止**用小色块/圆点/图标做行首标记或页面装饰——那是 AI 生成幻灯最易识别的特征;分条用发丝分隔线,强调用粗体导语与主色。
 9. **量值图走原生 chart 块,选型按数据形状定;词汇过 lint。** 占比/对比/趋势类简单量值图用 `chart` 块(pptxgenjs 原生,PowerPoint 内可编辑),**饼图默认不用**——类别 ≤3、只讲"某项过半"、且首尾差 ≥15 个百分点才允许,否则一律降序水平条;分布、误差棒、拟合线走 paper-figures 出矢量图。选型表与实现坑见 [references/charts.md](references/charts.md)。写完跑 `python3 wordlint.py <deck>.js` 清 hard/always 命中。
@@ -33,6 +33,29 @@ description: 制作标准、美观的学术汇报 PPT(pptx)。只要用户提到
 产出"章节 + 每页 action title + 每页放什么块"的大纲。只读标题序列必须讲完整个论证;讲不通先修大纲,不动代码。**大纲阶段就要防对称**:不要让每章都是三页、每页都是三条——条数由内容定,不由版面定(见 content-discipline.md 第一节)。超过 10 页内容页或结构复杂时,先给用户确认。
 
 固定骨架(中文学术场合):封面 → 目录 → 各章节(章节页 + 内容页) → 结论(倒数第二个内容页,Q&A 停留) → 参考文献 → 结束页(恳请批评指正);附录页放最后,kicker 标"附录"。
+
+### 第 1.5 步:先取真实照片(写脚本之前做)
+
+**这一步不能跳过,也不能推到最后。** 大纲定完就去取图——图取到了才知道哪页用 `cols` 图文混排、
+哪页留给数据图,版式跟着素材走;反过来先写脚本再补图,只能硬塞。
+
+按题目列出 2–4 个**实景位置**,每个位置取 3 张候选:
+
+| 汇报类型 | 典型实景位置 |
+|---|---|
+| 材料 / 化学 / 药学 | 研究对象实物(药材、样品、晶体)、关键仪器(HPLC、SEM、反应釜)、应用场景 |
+| 环境 / 公卫 | 污染场景、监测设备、采样现场、人群场景(注意隐私) |
+| 工程 / AI | 部署环境(机房、生产线)、传感器、终端设备;纯理论题目见下 |
+
+```bash
+python3 fetchimg.py "dried tangerine peel traditional chinese medicine" -n 3 -o assets/web -t peel
+python3 fetchimg.py "HPLC high performance liquid chromatography instrument" -n 3 -o assets/web -t hplc
+```
+
+- 关键词用**英文**且具体;命中率不稳,**一个词取不到就换角度重取**(材料 → 原料 → 工艺 → 仪器)。
+- 取到就 **Read 亲眼看**,按第 2.5 步的挑图标准筛;水印图、拼贴图、带外国机构标识且与语境冲突的一律弃。
+- **纯理论题目**(数学、算法、理论物理)确实可能没有合适实景图:那就取一张"计算/部署环境"类的图,
+  或传 `photos: false` 豁免并在交付说明里写清为什么。不要为了凑图放不相关的照片。
 
 ### 第 2 步:搭目录写脚本
 
@@ -190,6 +213,7 @@ soffice --headless --convert-to pdf my_talk.pptx && rm -f slide-*.jpg && pdftopp
 - [ ] slidekit 的填充率警告已清零(<40% 必须处理,40–62% 需给出保留理由)
 - [ ] `wordlint.py` 的 hard/always 命中已清零;density 档挑最空的删
 - [ ] 图表选型与数据形状匹配;饼图满足三条判据,否则已换水平条
+- [ ] 全篇至少有一张真实照片且署名已自动落页;`build()` 的实景图警告已清零或已显式豁免
 
 ### 第 4 步:交付与讲解
 
