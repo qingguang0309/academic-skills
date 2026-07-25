@@ -497,6 +497,24 @@ class Deck {
       });
       return { h: maxH, ratio, sum, gaps };
     }
+    if (t === "formula") {
+      const dim = imgSize(b.path);
+      const eqH = Math.min((b.height || 0.62) * sc, 1.6);          // 公式行高(按内容缩放)
+      const eqW = Math.min(dim.w / dim.h * eqH, w - 1.0);
+      const h2 = eqW / (dim.w / dim.h);
+      let hh = h2 + 0.1;
+      if (b.where && b.where.length) {
+        const wsz = this._fs(T.caption + 0.5, sc);
+        hh += textH(b.where.map(x => x.join(" ")).join("；"), wsz, w - 0.4) + 0.1;
+      }
+      return { h: hh, eqW, eqH: h2 };
+    }
+    if (t === "algorithm") {
+      const sz = this._fs(b.size || 12.5, sc);
+      let h = 0.34;                                                // 标题行
+      for (const ln of b.lines) h += textH(ln.replace(/^\s+/, ""), sz, w - 0.9) + 0.055;
+      return { h: h + 0.12 };
+    }
     if (t === "spacer") return { h: b.h || 0.2 };
     throw new Error(`未知块类型: ${t}`);
   }
@@ -531,42 +549,42 @@ class Deck {
       const cw = (box.w - gw * (n - 1)) / n;
       b.items.forEach((it, i) => {
         const x = box.x + i * (cw + gw);
-        s.addShape(this.pres.shapes.ROUNDED_RECTANGLE, { x, y: box.y, w: cw, h: box.h,
-          fill: { color: th.wash }, line: { color: th.washBorder, width: 1 }, rectRadius: 0.055 });
-        s.addText(this.runs(it.value, { fontSize: this._fs(T.statValue, sc), color: th.accent, bold: true }), {
-          x: x + 0.15, y: box.y + 0.12, w: cw - 0.3, h: 0.66, margin: 0, align: "center", valign: "middle" });
+        // 顶部标尺线代替填充块:数字靠字号与留白立住,不靠底色
+        s.addShape(this.pres.shapes.RECTANGLE, { x, y: box.y, w: cw, h: 0.026,
+          fill: { color: th.primary }, line: { type: "none" } });
+        s.addText(this.runs(it.value, { fontSize: this._fs(T.statValue, sc), color: th.primary, bold: true }), {
+          x, y: box.y + 0.16, w: cw, h: 0.66, margin: 0, align: "left", valign: "middle" });
         s.addText(this.runs(it.label, { fontSize: this._fs(T.statLabel, sc), color: th.ink, bold: true }), {
-          x: x + 0.15, y: box.y + 0.8, w: cw - 0.3, h: 0.3, margin: 0, align: "center" });
+          x, y: box.y + 0.86, w: cw, h: 0.3, margin: 0, align: "left" });
         if (it.note) s.addText(this.runs(it.note, { fontSize: this._fs(T.statNote, sc), color: th.muted }), {
-          x: x + 0.15, y: box.y + 1.1, w: cw - 0.3, h: 0.28, margin: 0, align: "center" });
+          x, y: box.y + 1.14, w: cw, h: 0.28, margin: 0, align: "left" });
       });
     } else if (t === "cards") {
       const { cardH, cols, cw } = mz;
       b.items.forEach((it, i) => {
         const r = Math.floor(i / cols), c = i % cols;
         const x = box.x + c * (cw + 0.32), y = box.y + r * (cardH + 0.3);
-        s.addShape(this.pres.shapes.ROUNDED_RECTANGLE, { x, y, w: cw, h: cardH,
-          fill: { color: th.wash }, line: { color: th.washBorder, width: 1 }, rectRadius: 0.05 });
-        let yy = y + 0.17;
+        // 顶部细线分栏,不画框、不填色
+        s.addShape(this.pres.shapes.RECTANGLE, { x, y, w: cw, h: 0.02,
+          fill: { color: th.line }, line: { type: "none" } });
+        let yy = y + 0.16;
         if (it.title) {
           const tSz = this._fs(T.cardTitle, sc);
-          const tH2 = textH(it.title, tSz, cw - 0.44);
-          s.addShape(this.pres.shapes.RECTANGLE, { x: x + 0.2, y: yy + 0.02, w: 0.022, h: Math.max(tH2 - 0.06, 0.16),
-            fill: { color: th.accent }, line: { type: "none" } });
+          const tH2 = textH(it.title, tSz, cw);
           s.addText(this.runs(it.title, { fontSize: tSz, color: th.primary, bold: true }), {
-            x: x + 0.3, y: yy - 0.04, w: cw - 0.5, h: tH2 + 0.06, margin: 0 });
-          yy += tH2 + 0.1;
+            x, y: yy - 0.04, w: cw, h: tH2 + 0.06, margin: 0 });
+          yy += tH2 + 0.08;
         }
         if (it.text) s.addText(this.runs(it.text, { fontSize: this._fs(T.cardBody, sc), color: th.ink }), {
-          x: x + 0.2, y: yy, w: cw - 0.4, h: cardH - (yy - y) - 0.12, margin: 0,
-          valign: "top", lineSpacingMultiple: 1.22 });
+          x, y: yy, w: cw, h: cardH - (yy - y) - 0.06, margin: 0,
+          valign: "top", lineSpacingMultiple: 1.24 });
       });
     } else if (t === "figure") {
       const { fit, capH, credit } = mz;
       const x = box.x + (box.w - fit.w) / 2;
-      if (b.frame !== false) s.addShape(this.pres.shapes.RECTANGLE, {
-        x: x - 0.04, y: box.y - 0.04, w: fit.w + 0.08, h: fit.h + 0.08,
-        fill: { color: "FFFFFF" }, line: { color: th.line, width: 1 } });
+      if (b.frame === true) s.addShape(this.pres.shapes.RECTANGLE, {   // 默认不加框;仅照片按需显式开启
+        x: x - 0.035, y: box.y - 0.035, w: fit.w + 0.07, h: fit.h + 0.07,
+        fill: { type: "none" }, line: { color: th.line, width: 0.75 } });
       s.addImage({ path: b.path, x, y: box.y, w: fit.w, h: fit.h });
       if (b.caption || credit) {
         let cap;
@@ -584,7 +602,7 @@ class Deck {
       const font = this._fs(T.tableBody, sc);
       const header = b.header.map(htxt => ({
         text: this.runs(htxt, {}), options: {
-          bold: true, color: th.primary, fill: { color: th.wash }, fontSize: font,
+          bold: true, color: th.primary, fontSize: font,
           border: [{ pt: 1.5, color: th.primary }, { type: "none" }, { pt: 0.75, color: th.muted }, { type: "none" }],
           margin: 0.08, valign: "middle",
         } }));
@@ -608,10 +626,10 @@ class Deck {
         fill: { color: th.line }, line: { type: "none" } });
       b.items.forEach((it, i) => {
         const x = box.x + i * (cw + 0.3);
-        s.addShape(this.pres.shapes.OVAL, { x: x + cw / 2 - 0.26, y: cy - 0.26, w: 0.52, h: 0.52,
-          fill: { color: th.accent }, line: { color: "FFFFFF", width: 2 } });
-        s.addText([{ text: String(i + 1), options: { fontFace: this.fonts.latin, fontSize: 15, color: "FFFFFF", bold: true } }], {
-          x: x + cw / 2 - 0.26, y: cy - 0.26, w: 0.52, h: 0.52, align: "center", valign: "middle", margin: 0 });
+        s.addShape(this.pres.shapes.OVAL, { x: x + cw / 2 - 0.24, y: cy - 0.24, w: 0.48, h: 0.48,
+          fill: { color: "FFFFFF" }, line: { color: th.primary, width: 1.4 } });
+        s.addText([{ text: String(i + 1), options: { fontFace: this.fonts.latin, fontSize: 15, color: th.primary, bold: true } }], {
+          x: x + cw / 2 - 0.24, y: cy - 0.24, w: 0.48, h: 0.48, align: "center", valign: "middle", margin: 0 });
         let yy = cy + 0.42;
         if (it.title) {
           s.addText(this.runs(it.title, { fontSize: this._fs(14, sc), color: th.primary, bold: true }), {
@@ -622,22 +640,61 @@ class Deck {
           x, y: yy, w: cw, h: box.h - (yy - box.y), margin: 0, align: "center", lineSpacingMultiple: 1.2 });
       });
     } else if (t === "callout") {
-      const tone = b.tone === "warn" ? { fill: "FCF6E3", border: "E3CE8E", text: "7A5B12", chip: th.warm }
-                                     : { fill: th.wash, border: th.washBorder, text: th.primary, chip: th.accent };
-      s.addShape(this.pres.shapes.ROUNDED_RECTANGLE, { x: box.x, y: box.y, w: box.w, h: box.h,
-        fill: { color: tone.fill }, line: { color: tone.border, width: 1 }, rectRadius: 0.05 });
-      let tx = box.x + 0.3;
+      // 左侧竖线 + 强调色标签:不画框、不填色、不用胶囊 chip
+      const rule = b.tone === "warn" ? th.warm : th.accent;
+      const txtColor = b.tone === "warn" ? th.muted : th.ink;
+      s.addShape(this.pres.shapes.RECTANGLE, { x: box.x, y: box.y + 0.02, w: 0.026,
+        h: Math.max(box.h - 0.04, 0.2), fill: { color: rule }, line: { type: "none" } });
+      let tx = box.x + 0.22;
       if (b.label) {
-        const lw = estW(b.label, 12) + 0.3;
-        s.addShape(this.pres.shapes.ROUNDED_RECTANGLE, { x: box.x + 0.24, y: box.y + box.h / 2 - 0.16, w: lw, h: 0.32,
-          fill: { color: tone.chip }, line: { type: "none" }, rectRadius: 0.16 });
-        s.addText(this.runs(b.label, { fontSize: 12, color: "FFFFFF", bold: true }), {
-          x: box.x + 0.24, y: box.y + box.h / 2 - 0.16, w: lw, h: 0.32, align: "center", valign: "middle", margin: 0 });
-        tx = box.x + 0.24 + lw + 0.22;
+        const lw = estW(b.label, 12) + 0.16;
+        s.addText(this.runs(b.label, { fontSize: 12, color: rule, bold: true, charSpacing: 0.8 }), {
+          x: tx, y: box.y + 0.06, w: lw, h: box.h - 0.12, align: "left", valign: "middle", margin: 0 });
+        tx += lw + 0.16;
       }
-      s.addText(this.runs(b.text, { fontSize: this._fs(b.size || T.small, sc), color: tone.text }), {
-        x: tx, y: box.y + 0.08, w: box.x + box.w - tx - 0.24, h: box.h - 0.16,
-        margin: 0, valign: "middle", lineSpacingMultiple: 1.2 });
+      s.addText(this.runs(b.text, { fontSize: this._fs(b.size || T.small, sc), color: txtColor }), {
+        x: tx, y: box.y + 0.04, w: box.x + box.w - tx, h: box.h - 0.08,
+        margin: 0, valign: "middle", lineSpacingMultiple: 1.22 });
+    } else if (t === "formula") {
+      const { eqW, eqH } = mz;
+      const x = box.x + (box.w - eqW) / 2;
+      s.addImage({ path: b.path, x, y: box.y, w: eqW, h: eqH });
+      if (b.tag) s.addText(this.runs(b.tag, { fontSize: T.caption + 0.5, color: th.muted }), {
+        x: box.x, y: box.y + eqH / 2 - 0.14, w: box.w, h: 0.28, margin: 0, align: "right" });
+      if (b.where && b.where.length) {
+        const runs = [{ text: b.whereLabel || "其中", options: {
+          fontFace: this.fonts.hans, fontSize: T.caption + 0.5, color: th.muted, bold: true } }];
+        b.where.forEach(([sym, mean], i) => {
+          runs.push(...this.runs(`  ${sym} `, { fontSize: T.caption + 0.5, color: th.primary, bold: true }));
+          runs.push(...this.runs(mean + (i < b.where.length - 1 ? "；" : "。"),
+            { fontSize: T.caption + 0.5, color: th.muted }));
+        });
+        s.addText(runs, { x: box.x + 0.2, y: box.y + eqH + 0.12, w: box.w - 0.4, h: box.h - eqH - 0.14,
+          margin: 0, valign: "top", lineSpacingMultiple: 1.24 });
+      }
+    } else if (t === "algorithm") {
+      // 伪代码:左侧竖线 + 等宽行号,不画框不填色
+      const sz = this._fs(b.size || 12.5, sc);
+      s.addShape(this.pres.shapes.RECTANGLE, { x: box.x, y: box.y + 0.02, w: 0.026,
+        h: Math.max(box.h - 0.06, 0.2), fill: { color: th.primary }, line: { type: "none" } });
+      let y = box.y + 0.02;
+      if (b.title) {
+        s.addText(this.runs(b.title, { fontSize: sz + 1, color: th.primary, bold: true }), {
+          x: box.x + 0.22, y, w: box.w - 0.24, h: 0.3, margin: 0 });
+        y += 0.32;
+      }
+      b.lines.forEach((raw, i) => {
+        const indent = (raw.match(/^\s*/) || [""])[0].length * 0.075;   // 前导空格 → 缩进
+        const txt = raw.trim();
+        const h = textH(txt, sz, box.w - 0.9 - indent);
+        s.addText([{ text: String(i + 1).padStart(2, " "), options: {
+          fontFace: this.fonts.mono || "Menlo", fontSize: sz - 1.5, color: th.faint } }], {
+          x: box.x + 0.22, y, w: 0.3, h: h + 0.04, margin: 0, align: "right" });
+        s.addText(this.runs(txt, { fontSize: sz, color: th.ink }), {
+          x: box.x + 0.62 + indent, y, w: box.w - 0.66 - indent, h: h + 0.04,
+          margin: 0, valign: "top", lineSpacingMultiple: 1.2 });
+        y += h + 0.055;
+      });
     } else if (t === "cols") {
       const { ratio, sum, gaps } = mz;
       let x = box.x;

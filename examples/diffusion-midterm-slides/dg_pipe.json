@@ -1,0 +1,22 @@
+{
+  "theme": "pku", "direction": "LR", "fontsize": 12.5, "ranksep": 0.7,
+  "groups": [
+    { "label": "离线：时间步优化（一次性，不改动网络）", "nodes": ["tea", "obj", "tab"] },
+    { "label": "在线：少步采样", "nodes": ["z", "solv", "img"] }
+  ],
+  "nodes": [
+    { "id": "tea",  "label": "教师轨迹\n多步高精度求解" },
+    { "id": "obj",  "label": "轨迹匹配目标\n式 (4)", "tone": "emphasis" },
+    { "id": "tab",  "label": "最优时间步表\n{t_i}", "tone": "tint" },
+    { "id": "z",    "label": "高斯噪声 x_T" },
+    { "id": "solv", "label": "二阶求解器\n按 {t_i} 迭代", "tone": "emphasis" },
+    { "id": "img",  "label": "样本 x_0", "tone": "tint" }
+  ],
+  "edges": [
+    { "from": "tea",  "to": "obj",  "label": "监督信号" },
+    { "from": "obj",  "to": "tab",  "label": "求解" },
+    { "from": "tab",  "to": "solv", "label": "载入步长表", "tone": "emphasis" },
+    { "from": "z",    "to": "solv" },
+    { "from": "solv", "to": "img",  "label": "N ≈ 10 次求值" }
+  ]
+}

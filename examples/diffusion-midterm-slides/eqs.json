@@ -1,0 +1,22 @@
+[
+ {
+  "id": "fwd",
+  "tex": "q(\\mathbf{x}_t \\mid \\mathbf{x}_0) = \\mathcal{N}\\!\\left(\\mathbf{x}_t;\\ \\sqrt{\\bar{\\alpha}_t}\\,\\mathbf{x}_0,\\ (1-\\bar{\\alpha}_t)\\mathbf{I}\\right)",
+  "size": 21
+ },
+ {
+  "id": "pf",
+  "tex": "\\frac{d\\mathbf{x}}{dt} = f(\\mathbf{x},t) - \\frac{1}{2}g^2(t)\\,\\nabla_{\\mathbf{x}}\\log p_t(\\mathbf{x})",
+  "size": 22
+ },
+ {
+  "id": "err",
+  "tex": "\\|\\hat{\\mathbf{x}}_0 - \\mathbf{x}_0\\| \\ \\leq\\ C_1\\,h^{\\,p} \\ +\\ C_2\\,\\epsilon_{\\mathrm{score}}",
+  "size": 21
+ },
+ {
+  "id": "obj",
+  "tex": "\\min_{\\{t_i\\}}\\ \\sum_{i=1}^{N} \\| \\Phi_{h_i}(\\mathbf{x}_{t_i}) - \\Psi(\\mathbf{x}_{t_i}) \\|^2 \\quad \\mathrm{s.t.}\\ \\sum_i h_i = T",
+  "size": 20
+ }
+]
