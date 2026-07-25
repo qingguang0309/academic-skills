@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""为 .docx 应用 qingguang 的个人风格：
+"""为 .docx 应用北京大学风格排版：
 - 页眉：左侧北大 logo（assets/pku_logo.png，0.95in × 0.22in），
   右侧文档大标题（Microsoft YaHei，北大红，右对齐 tab）
 - 页眉下方：北大红 0.5pt 分隔线
