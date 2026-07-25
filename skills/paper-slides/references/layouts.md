@@ -47,7 +47,8 @@ d.page({
 ## 块类型
 
 ```js
-// 要点列表:小方块行首标记,导语粗体。学术内容页的主力块
+// 要点列表:条目间发丝分隔线,粗体导语作强调(无行首色块)。学术内容页的主力块
+// rule:false 可关分隔线(条目极短或本身已成表格感时)
 { type: "bullets", items: [
     { lead: "导语:", text: "正文,自动换行" },
     { text: "无导语的条目" },
@@ -71,6 +72,7 @@ d.page({
 
 // 技术路线/流程:圆形编号 + 连线,横向
 { type: "steps", items: [{ title: "配准", text: "残差 <1 px" }] }
+// ↑ 仅限简单线性步骤。有分支/汇合/分组阶段的流程图请用 flowchart.py 生成 PNG 后走 figure 块
 
 // 提示框:声明、结论强调;tone:'warn' 用于"数值为目标非结果"类声明
 { type: "callout", label: "说明", text: "…", tone: "accent" | "warn" }
@@ -90,7 +92,7 @@ d.page({
 - **背景/动机页**:bullets(3 条,带导语) + 可选 callout
 - **科学问题页**:text(问题句,居中可加大) + callout(label:"关键构想")
 - **数据集/方法概览**:cols[ bullets | bullets ] 或 cards×3
-- **架构/路线页**:figure(大图) 或 steps(无现成图时)
+- **架构/路线页**:`flowchart.py` 生成的流程图走 figure 块(**首选**);`steps` 仅用于 3–5 步、无分支、无需连线语义的线性时间条
 - **结果页**:cols[ figure(3) | bullets(2) ],结论写进 title,图上要有标注
 - **指标页**:stats(3-4 个) 或 table(指标×验证协议)
 - **结论页**:bullets(2-4 条,lead 用"1."、"2."编号) + callout(联系方式/预印本链接)

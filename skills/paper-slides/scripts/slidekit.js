@@ -270,9 +270,6 @@ class Deck {
   }
 
   // ---------- 通用小件 ----------
-  _sq(s, x, y, size, color) { // 母题:小方块
-    s.addShape(this.pres.shapes.RECTANGLE, { x, y, w: size, h: size, fill: { color }, line: { type: "none" } });
-  }
   _footer(ctx) {
     const th = this.theme;
     const left = [this.meta.shortTitle, ctx.sec].filter(Boolean).join(" · ");
@@ -287,9 +284,8 @@ class Deck {
     const kicker = a.kicker || ctx.sec || this.meta.occasion || "";
     let y = 0.5;
     if (kicker) {
-      this._sq(ctx.slide, M, y + 0.035, 0.1, th.warm);
-      ctx.slide.addText(this.runs(kicker, { fontSize: T.kicker, color: th.accent, bold: true, charSpacing: 2 }), {
-        x: M + 0.2, y: y - 0.06, w: CW - 0.2, h: 0.3, margin: 0, valign: "middle" });
+      ctx.slide.addText(this.runs(kicker, { fontSize: T.kicker, color: th.accent, bold: true, charSpacing: 2.4 }), {
+        x: M, y: y - 0.06, w: CW, h: 0.3, margin: 0, valign: "middle" });
       y += 0.34;
     }
     const tSize = a.titleSize || T.pageTitle;
@@ -323,10 +319,8 @@ class Deck {
       });
     }
     s.background = { color: th.primary };
-    // 母题:左上小方块 + 场合
-    this._sq(s, M, 0.92, 0.13, th.warm);
-    if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 13, color: th.onDarkSub, bold: true, charSpacing: 3 }), {
-      x: M + 0.26, y: 0.78, w: CW - 0.26, h: 0.4, margin: 0, valign: "middle" });
+    if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 13, color: th.onDarkSub, bold: true, charSpacing: 3.4 }), {
+      x: M, y: 0.78, w: CW, h: 0.4, margin: 0, valign: "middle" });
     // 主标题
     const tSize = a.titleSize || T.coverTitle;
     s.addText(this.runs(m.title, { fontSize: tSize, color: th.onDark, bold: true }), {
@@ -353,7 +347,8 @@ class Deck {
     this._brandCorner(ctx);
     s.addText(this.runs(this.L.toc, { fontSize: 30, color: th.primary, bold: true, charSpacing: this.lang === "zh" ? 6 : 0 }), {
       x: M, y: 0.62, w: 6, h: 0.6, margin: 0 });
-    this._sq(s, M, 1.42, 0.12, th.warm);
+    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: 1.46, w: 1.15, h: 0.028,
+      fill: { color: th.accent }, line: { type: "none" } });
     const n = this.sections.length;
     const rowH = Math.min(0.98, 4.6 / Math.max(n, 1));
     let y = 1.9;
@@ -383,9 +378,10 @@ class Deck {
     s.addText([{ text: `${this.L.part} ${String(a.idx).padStart(2, "0")}`, options: {
       fontFace: this.fonts.latin, fontSize: 13, color: th.accent, bold: true, charSpacing: 3 } }], {
       x: M + 0.02, y: 3.06, w: 3, h: 0.32, margin: 0 });
-    this._sq(s, M, 3.62, 0.13, th.warm);
+    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: 3.42, w: 0.032, h: 0.54,
+      fill: { color: th.accent }, line: { type: "none" } });
     s.addText(this.runs(a.title, { fontSize: T.sectionTitle, color: th.primary, bold: true }), {
-      x: M + 0.3, y: 3.36, w: CW - 0.3, h: 0.66, margin: 0, valign: "middle" });
+      x: M + 0.24, y: 3.36, w: CW - 0.24, h: 0.66, margin: 0, valign: "middle" });
     if (a.note) s.addText(this.runs(a.note, { fontSize: T.sectionNote, color: th.muted }), {
       x: M + 0.3, y: 4.12, w: CW - 1.5, h: 0.6, margin: 0, lineSpacingMultiple: 1.25 });
     // 底部全章节导航,当前高亮
@@ -516,15 +512,20 @@ class Deck {
     } else if (t === "bullets") {
       let y = box.y;
       const size = this._fs(b.size || T.body, sc);
-      for (const it of b.items) {
+      b.items.forEach((it, i) => {
         const full = (it.lead ? it.lead + "  " : "") + it.text;
-        const h = textH(full, size, box.w - 0.3);
-        this._sq(s, box.x + 0.02, y + (size / 72) * 0.42, 0.085, th.warm);
+        const h = textH(full, size, box.w - 0.02);
         s.addText(this.runs(it.text, { fontSize: size, color: th.ink, lead: it.lead }), {
-          x: box.x + 0.3, y: y - 0.02, w: box.w - 0.3, h: h + 0.06, margin: 0,
-          valign: "top", lineSpacingMultiple: 1.24 });
+          x: box.x, y: y - 0.02, w: box.w, h: h + 0.06, margin: 0,
+          valign: "top", lineSpacingMultiple: 1.26 });
         y += h + (b.gap != null ? b.gap : 0.16);
-      }
+        // 条目间发丝分隔线:替代行首色块承担"分条"职责
+        if (b.rule !== false && i < b.items.length - 1) {
+          const gy = y - (b.gap != null ? b.gap : 0.16) / 2;
+          s.addShape(this.pres.shapes.RECTANGLE, { x: box.x, y: gy, w: box.w, h: 0.007,
+            fill: { color: th.line }, line: { type: "none" } });
+        }
+      });
     } else if (t === "stats") {
       const n = b.items.length, gw = 0.32;
       const cw = (box.w - gw * (n - 1)) / n;
@@ -548,10 +549,13 @@ class Deck {
           fill: { color: th.wash }, line: { color: th.washBorder, width: 1 }, rectRadius: 0.05 });
         let yy = y + 0.17;
         if (it.title) {
-          this._sq(s, x + 0.2, yy + 0.05, 0.08, th.warm);
-          s.addText(this.runs(it.title, { fontSize: this._fs(T.cardTitle, sc), color: th.primary, bold: true }), {
-            x: x + 0.38, y: yy - 0.04, w: cw - 0.56, h: 0.32, margin: 0 });
-          yy += textH(it.title, this._fs(T.cardTitle, sc), cw - 0.56) + 0.1;
+          const tSz = this._fs(T.cardTitle, sc);
+          const tH2 = textH(it.title, tSz, cw - 0.44);
+          s.addShape(this.pres.shapes.RECTANGLE, { x: x + 0.2, y: yy + 0.02, w: 0.022, h: Math.max(tH2 - 0.06, 0.16),
+            fill: { color: th.accent }, line: { type: "none" } });
+          s.addText(this.runs(it.title, { fontSize: tSz, color: th.primary, bold: true }), {
+            x: x + 0.3, y: yy - 0.04, w: cw - 0.5, h: tH2 + 0.06, margin: 0 });
+          yy += tH2 + 0.1;
         }
         if (it.text) s.addText(this.runs(it.text, { fontSize: this._fs(T.cardBody, sc), color: th.ink }), {
           x: x + 0.2, y: yy, w: cw - 0.4, h: cardH - (yy - y) - 0.12, margin: 0,
@@ -684,7 +688,8 @@ class Deck {
       });
     }
     s.background = { color: th.primary };
-    this._sq(s, M, 2.5, 0.13, th.warm);
+    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: 2.56, w: 1.15, h: 0.028,
+      fill: { color: th.onDarkSub }, line: { type: "none" } });
     s.addText(this.runs(a.main || this.L.closingMain, { fontSize: 34, color: th.onDark, bold: true }), {
       x: M, y: 2.9, w: CW, h: 0.9, margin: 0 });
     if (a.sub) s.addText(this.runs(a.sub, { fontSize: 15, color: th.onDarkSub }), {

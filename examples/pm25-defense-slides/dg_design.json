@@ -1,0 +1,29 @@
+{
+  "theme": "pku", "direction": "LR", "fontsize": 13, "ranksep": 0.75,
+  "groups": [
+    { "label": "暴露评估", "nodes": ["sat", "sta", "fuse", "grid"] },
+    { "label": "队列与结局", "nodes": ["base", "link"] },
+    { "label": "统计分析", "nodes": ["cox", "spline", "burden"] }
+  ],
+  "nodes": [
+    { "id": "sat",    "label": "卫星气溶胶\nMODIS/MAIAC" },
+    { "id": "sta",    "label": "地面国控站\n1600 站点" },
+    { "id": "fuse",   "label": "融合模型\n随机森林 + Kriging", "tone": "emphasis" },
+    { "id": "grid",   "label": "1 km 日浓度场", "tone": "tint" },
+    { "id": "base",   "label": "基线队列\n48.6 万人" },
+    { "id": "link",   "label": "结局链接\n死因监测 + 医保住院", "tone": "tint" },
+    { "id": "cox",    "label": "Cox 模型\n分层 + 逐步调整", "tone": "emphasis" },
+    { "id": "spline", "label": "暴露–反应曲线\n限制性立方样条", "tone": "tint" },
+    { "id": "burden", "label": "达标情景\n可避免负担", "tone": "tint" }
+  ],
+  "edges": [
+    { "from": "sat",  "to": "fuse", "label": "光学厚度" },
+    { "from": "sta",  "to": "fuse", "label": "校准" },
+    { "from": "fuse", "to": "grid" },
+    { "from": "grid", "to": "cox",  "label": "地址地理编码\n前 3 年均值", "tone": "emphasis" },
+    { "from": "base", "to": "link", "label": "随访 9.8 年" },
+    { "from": "link", "to": "cox",  "label": "首次发病事件" },
+    { "from": "cox",  "to": "spline" },
+    { "from": "spline", "to": "burden", "label": "反事实情景" }
+  ]
+}

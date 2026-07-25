@@ -1,0 +1,56 @@
+{
+  "haze_1.jpg": {
+    "title": "Out of the rain - into the sun",
+    "creator": "staffan.scherz",
+    "license": "CC BY",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/",
+    "source_page": "https://www.flickr.com/photos/31638323@N08/15771090131",
+    "provider": "flickr",
+    "query": "air pollution haze city skyline smog"
+  },
+  "haze_2.jpg": {
+    "title": "",
+    "creator": "eflon",
+    "license": "CC BY",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/",
+    "source_page": "https://www.flickr.com/photos/23094783@N03/7960092282",
+    "provider": "flickr",
+    "query": "air pollution haze city skyline smog"
+  },
+  "haze_3.jpg": {
+    "title": "outline",
+    "creator": "416style",
+    "license": "CC BY",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/",
+    "source_page": "https://www.flickr.com/photos/20532289@N00/64612382",
+    "provider": "flickr",
+    "query": "air pollution haze city skyline smog"
+  },
+  "monitor_1.jpg": {
+    "title": "Air quality monitoring station in DISH, Texas",
+    "creator": "Jeremy Buckingham from Orange, Australia",
+    "license": "CC BY",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/",
+    "source_page": "https://commons.wikimedia.org/w/index.php?curid=54926163",
+    "provider": "wikimedia",
+    "query": "air quality monitoring station"
+  },
+  "monitor_2.png": {
+    "title": "Bahnhofstraße, Cottbus-Mitte (air quality monitoring station, close-up)",
+    "creator": "Trio3D",
+    "license": "CC BY-SA",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "source_page": "https://commons.wikimedia.org/w/index.php?curid=82522254",
+    "provider": "wikimedia",
+    "query": "air quality monitoring station"
+  },
+  "monitor_3.jpg": {
+    "title": "Air quality monitoring station, Telford Street - geograph.org.uk - 2905779",
+    "creator": "Craig Wallace",
+    "license": "CC BY-SA",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "source_page": "https://commons.wikimedia.org/w/index.php?curid=113498966",
+    "provider": "wikimedia",
+    "query": "air quality monitoring station"
+  }
+}

@@ -58,6 +58,12 @@ const THEMES = {
     line: "E0D8E2", wash: "F6F3F7", washBorder: "E9E1EB", tint: "EFE7F0",
     onDark: "FFFFFF", onDarkSub: "CDB9CF",
   },
+  pku: { // 北大红·燕园金 —— 北京大学官方模版配色(北大红 9A0001 / 燕园金 CEAB6E)
+    primary: "9A0001", accent: "BE2A2E", warm: "CEAB6E",
+    ink: "2A2422", muted: "797069", faint: "A79E97",
+    line: "E7DAD8", wash: "FBF5F4", washBorder: "F0E1DF", tint: "F4E4E3",
+    onDark: "FFFFFF", onDarkSub: "E6BEB4",
+  },
 };
 
 // ---------- 语言包 ----------
@@ -140,6 +146,58 @@ class Deck {
     this.sections = [];       // {title, note, opIndex}
     this.figN = 0; this.tabN = 0;
     this.warns = [];
+    this.brand = this._resolveBrand(opts);
+  }
+
+  // 品牌资源(校徽/logo):pku 主题默认引用随 slidekit 打包的 assets/,
+  // 也可用 opts.logo / opts.seal 显式指定(传绝对路径或相对生成脚本的路径),
+  // 传 false 关闭;文件不存在则静默跳过(不影响其它主题)。
+  //   logo  = 印章+校名横排锁定版,置于正文/章节/目录/参考文献页右上角
+  //   seal  = 圆形印章,用于 band 式封面/结束页居中
+  //   style = 'band'(白—红—白三段带 + 居中印章,北大官方封面样式)/ 'plain'(纯色封面)
+  _resolveBrand(opts) {
+    const dir = path.join(__dirname, "assets");
+    const isPku = (opts.theme === "pku");
+    const has = p => { try { return p && fs.existsSync(p) ? p : null; } catch (e) { return null; } };
+    const pick = (v, def) => v === false ? null : has(v || def);
+    const logo = pick(opts.logo, isPku ? path.join(dir, "pku-logo.png") : null);
+    const seal = pick(opts.seal, isPku ? path.join(dir, "pku-seal.png") : null);
+    const style = opts.coverStyle || (seal ? "band" : "plain");
+    return { logo, seal, style, corner: opts.cornerLogo !== false && !!logo };
+  }
+
+  // 正文/章节/目录/参考文献页右上角的横排 logo(印章+校名),等高缩放不变形
+  _brandCorner(ctx) {
+    if (!this.brand.corner || !this.brand.logo) return;
+    const d = imgSize(this.brand.logo);
+    const h = 0.4, w = h * d.w / d.h;
+    ctx.slide.addImage({ path: this.brand.logo, x: W - M - w, y: 0.34, w, h });
+  }
+
+  // band 式封面/结束页:白底 + 居中红带 + 印章骑在红带上沿,主文字居中于带内
+  _bandBase(ctx, o) {
+    const th = this.theme, s = ctx.slide, R = this.pres.shapes.RECTANGLE;
+    // 印章整枚坐落白区、下沿切于红带上沿(印章与红带同色,故不让其没入红带)
+    const sealH = 1.4, sealTop = 0.55, bandTop = sealTop + sealH, bandH = 3.3;
+    s.addShape(R, { x: 0, y: bandTop, w: W, h: bandH, fill: { color: th.primary }, line: { type: "none" } });
+    if (this.brand.seal) {
+      const d = imgSize(this.brand.seal), sw = sealH * d.w / d.h;
+      s.addImage({ path: this.brand.seal, x: (W - sw) / 2, y: sealTop, w: sw, h: sealH });
+    }
+    s.addText(this.runs(o.main, { fontSize: o.mainSize || T.coverTitle, color: th.onDark, bold: true, align: "center" }),
+      { x: 1.0, y: 2.62, w: W - 2.0, h: 1.5, margin: 0, align: "center", valign: "middle", lineSpacingMultiple: 1.12 });
+    if (o.sub) {
+      s.addText(this.runs(o.sub, { fontSize: T.coverSub, color: th.onDarkSub, align: "center" }),
+        { x: 1.0, y: 4.32, w: W - 2.0, h: 0.4, margin: 0, align: "center", valign: "middle" });
+      s.addShape(R, { x: W / 2 - 0.35, y: 4.82, w: 0.7, h: 0.014, fill: { color: th.onDarkSub }, line: { type: "none" } });
+    }
+    let y = 5.98;
+    [o.meta1, o.meta2].filter(Boolean).forEach((ln, i) => {
+      s.addText(this.runs(ln, { fontSize: T.coverMeta, color: i === 0 ? th.ink : th.muted, align: "center" }),
+        { x: 1.0, y, w: W - 2.0, h: 0.36, margin: 0, align: "center", valign: "middle" });
+      y += 0.42;
+    });
+    if (o.notes) s.addNotes(o.notes);
   }
 
   // 文本 → pptxgenjs run 数组(自动分配中西文字体)
@@ -212,9 +270,6 @@ class Deck {
   }
 
   // ---------- 通用小件 ----------
-  _sq(s, x, y, size, color) { // 母题:小方块
-    s.addShape(this.pres.shapes.RECTANGLE, { x, y, w: size, h: size, fill: { color }, line: { type: "none" } });
-  }
   _footer(ctx) {
     const th = this.theme;
     const left = [this.meta.shortTitle, ctx.sec].filter(Boolean).join(" · ");
@@ -229,9 +284,8 @@ class Deck {
     const kicker = a.kicker || ctx.sec || this.meta.occasion || "";
     let y = 0.5;
     if (kicker) {
-      this._sq(ctx.slide, M, y + 0.035, 0.1, th.warm);
-      ctx.slide.addText(this.runs(kicker, { fontSize: T.kicker, color: th.accent, bold: true, charSpacing: 2 }), {
-        x: M + 0.2, y: y - 0.06, w: CW - 0.2, h: 0.3, margin: 0, valign: "middle" });
+      ctx.slide.addText(this.runs(kicker, { fontSize: T.kicker, color: th.accent, bold: true, charSpacing: 2.4 }), {
+        x: M, y: y - 0.06, w: CW, h: 0.3, margin: 0, valign: "middle" });
       y += 0.34;
     }
     const tSize = a.titleSize || T.pageTitle;
@@ -252,11 +306,21 @@ class Deck {
   // ---------- 封面 ----------
   _cover(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta;
+    if (this.brand.style === "band" && this.brand.seal) {
+      return this._bandBase(ctx, {
+        main: m.title, mainSize: a.titleSize || T.coverTitle,
+        sub: m.subtitle || m.occasion,
+        meta1: [
+          m.presenter ? `${this.L.presenter}:${m.presenter}` : null,
+          m.advisor ? `${this.L.advisor}:${m.advisor}` : null,
+        ].filter(Boolean).join("     "),
+        meta2: [m.org, m.date].filter(Boolean).join("  ·  "),
+        notes: a.notes,
+      });
+    }
     s.background = { color: th.primary };
-    // 母题:左上小方块 + 场合
-    this._sq(s, M, 0.92, 0.13, th.warm);
-    if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 13, color: th.onDarkSub, bold: true, charSpacing: 3 }), {
-      x: M + 0.26, y: 0.78, w: CW - 0.26, h: 0.4, margin: 0, valign: "middle" });
+    if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 13, color: th.onDarkSub, bold: true, charSpacing: 3.4 }), {
+      x: M, y: 0.78, w: CW, h: 0.4, margin: 0, valign: "middle" });
     // 主标题
     const tSize = a.titleSize || T.coverTitle;
     s.addText(this.runs(m.title, { fontSize: tSize, color: th.onDark, bold: true }), {
@@ -280,9 +344,11 @@ class Deck {
   // ---------- 目录 ----------
   _toc(ctx) {
     const th = this.theme, s = ctx.slide;
+    this._brandCorner(ctx);
     s.addText(this.runs(this.L.toc, { fontSize: 30, color: th.primary, bold: true, charSpacing: this.lang === "zh" ? 6 : 0 }), {
       x: M, y: 0.62, w: 6, h: 0.6, margin: 0 });
-    this._sq(s, M, 1.42, 0.12, th.warm);
+    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: 1.46, w: 1.15, h: 0.028,
+      fill: { color: th.accent }, line: { type: "none" } });
     const n = this.sections.length;
     const rowH = Math.min(0.98, 4.6 / Math.max(n, 1));
     let y = 1.9;
@@ -304,6 +370,7 @@ class Deck {
   // ---------- 章节过渡页 ----------
   _section(ctx, a) {
     const th = this.theme, s = ctx.slide;
+    this._brandCorner(ctx);
     // 超大章节号(浅色) + PART 标签
     s.addText([{ text: String(a.idx).padStart(2, "0"), options: {
       fontFace: this.fonts.latin, fontSize: T.sectionNum, color: th.tint, bold: true } }], {
@@ -311,9 +378,10 @@ class Deck {
     s.addText([{ text: `${this.L.part} ${String(a.idx).padStart(2, "0")}`, options: {
       fontFace: this.fonts.latin, fontSize: 13, color: th.accent, bold: true, charSpacing: 3 } }], {
       x: M + 0.02, y: 3.06, w: 3, h: 0.32, margin: 0 });
-    this._sq(s, M, 3.62, 0.13, th.warm);
+    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: 3.42, w: 0.032, h: 0.54,
+      fill: { color: th.accent }, line: { type: "none" } });
     s.addText(this.runs(a.title, { fontSize: T.sectionTitle, color: th.primary, bold: true }), {
-      x: M + 0.3, y: 3.36, w: CW - 0.3, h: 0.66, margin: 0, valign: "middle" });
+      x: M + 0.24, y: 3.36, w: CW - 0.24, h: 0.66, margin: 0, valign: "middle" });
     if (a.note) s.addText(this.runs(a.note, { fontSize: T.sectionNote, color: th.muted }), {
       x: M + 0.3, y: 4.12, w: CW - 1.5, h: 0.6, margin: 0, lineSpacingMultiple: 1.25 });
     // 底部全章节导航,当前高亮
@@ -333,6 +401,7 @@ class Deck {
   // ---------- 内容页 ----------
   _page(ctx, a) {
     const s = ctx.slide;
+    this._brandCorner(ctx);
     const top = this._header(ctx, a);
     const box = { x: M, y: top, w: CW, h: CONTENT_BOTTOM - top };
     this._renderBlocks(ctx, a.blocks || [], box);
@@ -443,15 +512,20 @@ class Deck {
     } else if (t === "bullets") {
       let y = box.y;
       const size = this._fs(b.size || T.body, sc);
-      for (const it of b.items) {
+      b.items.forEach((it, i) => {
         const full = (it.lead ? it.lead + "  " : "") + it.text;
-        const h = textH(full, size, box.w - 0.3);
-        this._sq(s, box.x + 0.02, y + (size / 72) * 0.42, 0.085, th.warm);
+        const h = textH(full, size, box.w - 0.02);
         s.addText(this.runs(it.text, { fontSize: size, color: th.ink, lead: it.lead }), {
-          x: box.x + 0.3, y: y - 0.02, w: box.w - 0.3, h: h + 0.06, margin: 0,
-          valign: "top", lineSpacingMultiple: 1.24 });
+          x: box.x, y: y - 0.02, w: box.w, h: h + 0.06, margin: 0,
+          valign: "top", lineSpacingMultiple: 1.26 });
         y += h + (b.gap != null ? b.gap : 0.16);
-      }
+        // 条目间发丝分隔线:替代行首色块承担"分条"职责
+        if (b.rule !== false && i < b.items.length - 1) {
+          const gy = y - (b.gap != null ? b.gap : 0.16) / 2;
+          s.addShape(this.pres.shapes.RECTANGLE, { x: box.x, y: gy, w: box.w, h: 0.007,
+            fill: { color: th.line }, line: { type: "none" } });
+        }
+      });
     } else if (t === "stats") {
       const n = b.items.length, gw = 0.32;
       const cw = (box.w - gw * (n - 1)) / n;
@@ -475,10 +549,13 @@ class Deck {
           fill: { color: th.wash }, line: { color: th.washBorder, width: 1 }, rectRadius: 0.05 });
         let yy = y + 0.17;
         if (it.title) {
-          this._sq(s, x + 0.2, yy + 0.05, 0.08, th.warm);
-          s.addText(this.runs(it.title, { fontSize: this._fs(T.cardTitle, sc), color: th.primary, bold: true }), {
-            x: x + 0.38, y: yy - 0.04, w: cw - 0.56, h: 0.32, margin: 0 });
-          yy += textH(it.title, this._fs(T.cardTitle, sc), cw - 0.56) + 0.1;
+          const tSz = this._fs(T.cardTitle, sc);
+          const tH2 = textH(it.title, tSz, cw - 0.44);
+          s.addShape(this.pres.shapes.RECTANGLE, { x: x + 0.2, y: yy + 0.02, w: 0.022, h: Math.max(tH2 - 0.06, 0.16),
+            fill: { color: th.accent }, line: { type: "none" } });
+          s.addText(this.runs(it.title, { fontSize: tSz, color: th.primary, bold: true }), {
+            x: x + 0.3, y: yy - 0.04, w: cw - 0.5, h: tH2 + 0.06, margin: 0 });
+          yy += tH2 + 0.1;
         }
         if (it.text) s.addText(this.runs(it.text, { fontSize: this._fs(T.cardBody, sc), color: th.ink }), {
           x: x + 0.2, y: yy, w: cw - 0.4, h: cardH - (yy - y) - 0.12, margin: 0,
@@ -575,6 +652,7 @@ class Deck {
   // ---------- 参考文献页 ----------
   _refs(ctx, a) {
     const th = this.theme, s = ctx.slide;
+    this._brandCorner(ctx);
     const top = this._header(ctx, { title: a.title || this.L.refs, kicker: a.kicker || "" });
     const list = a.list;
     const twoCol = list.length > 5;
@@ -600,8 +678,18 @@ class Deck {
   // ---------- 结束页 ----------
   _closing(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta;
+    if (this.brand.style === "band" && this.brand.seal) {
+      return this._bandBase(ctx, {
+        main: a.main || this.L.closingMain, mainSize: 34,
+        sub: a.sub || m.occasion,
+        meta1: m.org || "",
+        meta2: [a.contact, m.date].filter(Boolean).join("  ·  "),
+        notes: a.notes,
+      });
+    }
     s.background = { color: th.primary };
-    this._sq(s, M, 2.5, 0.13, th.warm);
+    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: 2.56, w: 1.15, h: 0.028,
+      fill: { color: th.onDarkSub }, line: { type: "none" } });
     s.addText(this.runs(a.main || this.L.closingMain, { fontSize: 34, color: th.onDark, bold: true }), {
       x: M, y: 2.9, w: CW, h: 0.9, margin: 0 });
     if (a.sub) s.addText(this.runs(a.sub, { fontSize: 15, color: th.onDarkSub }), {
