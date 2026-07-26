@@ -70,18 +70,18 @@ const THEMES = {
   },
 };
 
-// ---------- 背景层:同色浓度阶梯 ----------
-// 拆两份真实汇报得到的唯一背景语法:一块实色 + 一片同色系 6%–12% 浓度的区域
-// (lis 的 #F8F0F1 = 主色 6% 压白;mos2 结束页满版图最暗只到 223/255 ≈ 12%)。
-// 它们的蜂窝网格与地标剪影**不学**:规则六边形正是 AI 生成幻灯最典型的背景签名,
-// 地标是机构专属、塞进通用模板就是错的。只抄浓度与构图,不抄图案。
-//
-// 实现上必须是**真渐变**,不能用浓度阶梯拼。试过阶梯(宽度递增 + 浓度递减),
-// 150 dpi 下实测相邻级差 ΔRGB 达 (5,12,12),肉眼直接读成条纹——那正是我们要躲的色块。
-// pptxgenjs 没有渐变 API,所以画一个纯色矩形当锚点,由 postProcess 把
-// <a:solidFill> 换成 <a:gradFill>(与注入切换效果、图表中文字体同一条路子)。
-const FADE_TAG = "skfade:";
-const FADE_SPAN = { side: 3.4, band: 1.9 };   // 侧向/纵向的化开距离(in)
+// ---------- 背景层:直接取自真实汇报的素材 ----------
+// 这三张图是从两份真实的北大汇报里导出来的原件(ppt/media),不是仿制:
+//   pku-landmarks 大殿+华表+红楼+博雅塔+未名湖印章的线描,透明底、自上而下渐隐
+//   pku-honeycomb 蜂窝网格 + 博雅塔剪影,极淡(主色约 6% 压白)
+//   pku-campus    未名湖畔的近白灰度照(最暗仅 223/255),用作首尾页肌理
+// 都是机构专属素材,因此只在 pku 主题下启用;其它主题的首尾页保持纯白。
+// 不用渐变:CSS 式的渐变背景在投影上一眼假,真实汇报里也没有——它们用的是实素材。
+const DECOR = {
+  landmarks: "pku-landmarks.png",
+  honeycomb: "pku-honeycomb.png",
+  campus: "pku-campus.png",
+};
 
 // 图表系列色板:主色→强调色→暖色→中性,保证 4 系列内可区分且与页面同调。
 // 超过 4 系列说明该换图型(见 references/charts.md),不再往后编色。
@@ -285,6 +285,15 @@ class Deck {
       `全篇没有真实照片(0 张来自 credits.json 的实景图)——先用 fetchimg.py 按题目取 CC 许可` +
       `照片配到研究对象/装置/应用场景页(见 SKILL.md 第 1.5 步);` +
       `确实没有合适图片时传 photos:false 显式豁免`);
+    // pku 主题却找不到品牌素材,说明复制 slidekit.js 时漏了同级的 assets/。
+    // SKILL.md 第 2 步早就写了这条,但写着的规则会被跳过——所以做成检查。
+    if (this.theme === THEMES.pku) {
+      const miss = ["pku-logo.png", ...Object.values(DECOR)]
+        .filter(f => !fs.existsSync(path.join(__dirname, "assets", f)));
+      if (miss.length) this.warns.push(
+        `pku 主题缺少品牌素材 ${miss.join("、")}——复制 slidekit.js 时要连同级的 ` +
+        `assets/ 一起复制(校徽与地标/蜂窝/校园照都从那里找)。缺了封面就是一张白纸加字。`);
+    }
     // 场合是中文学术封面的必需项:评审得先知道这是答辩还是组会。
     // 旧代码里 subtitle 一存在就把 occasion 顶掉了,静默丢失,这里显式兜住。
     if (!this.meta.occasion) this.warns.push(
@@ -350,29 +359,25 @@ class Deck {
   // 固定间距在 42pt 下会让标尺线贴住末行字,读起来像下划线而不是独立元素。
   _rulerGap(size) { return 0.24 + (size / 72) * 0.38; }
 
-  // 浓度阶梯:从 anchor 处最浓、沿 dir 化开。
-  // bleed 是首级向实色块内的搭接量,用来消掉半像素接缝——因此调用顺序必须是
-  // _fade 在前、实色块在后,让实色块盖住搭接的那一点。
-  // 全部取 th.primary + transparency,零硬编码色值:换主题背景自动跟着换,
-  // 这正是位图背景做不到的事。
-  _fade(ctx, anchor, dir, o = {}) {
-    const th = this.theme, R = this.pres.shapes.RECTANGLE;
-    const span = o.span || FADE_SPAN[dir === "right" ? "side" : "band"];
-    const peak = o.peak != null ? o.peak : 12;
-    const bleed = o.bleed != null ? o.bleed : 0.02;
-    const color = o.color || th.primary;
-    let box;
-    if (dir === "right") box = { x: anchor - bleed, y: 0, w: span + bleed, h: H };
-    else if (dir === "up") box = { x: 0, y: anchor - span, w: W, h: span + bleed };
-    else box = { x: 0, y: anchor - bleed, w: W, h: span + bleed };
-    // 只画一个形状,填充留给 postProcess 换成真渐变。
-    // 这里先给纯色是为了让 pptxgenjs 正常写出 <a:solidFill>,给注入留一个锚点;
-    // objectName 是找到它的唯一凭据。
-    ctx.slide.addShape(R, {
-      ...box, line: { type: "none" },
-      fill: { color, transparency: 100 - peak },
-      objectName: `${FADE_TAG}${dir}:${color}:${peak}`,
-    });
+  // 素材背景。等比缩放,不拉伸——真实汇报里的地标线描被横向拉过 1.455 倍,
+  // 塔身明显变胖,那是它们手拍坐标的代价,不必跟着犯。
+  // 只在 pku 主题下有素材;其它主题静默跳过,首尾页保持纯白。
+  _hasDecor(which) {
+    return this.theme === THEMES.pku &&
+      fs.existsSync(path.join(__dirname, "assets", DECOR[which]));
+  }
+
+  _decor(ctx, which, o = {}) {
+    if (!this._hasDecor(which)) return;
+    const p = path.join(__dirname, "assets", DECOR[which]);
+    const d = imgSize(p);
+    let w = o.w, h = o.h;
+    if (w && !h) h = w * d.h / d.w;
+    else if (h && !w) w = h * d.w / d.h;
+    else if (!w && !h) { w = W; h = W * d.h / d.w; }
+    const x = o.x != null ? o.x : (o.right != null ? W - o.right - w : 0);
+    const y = o.y != null ? o.y : (o.bottom != null ? H - o.bottom - h : 0);
+    ctx.slide.addImage({ path: p, x, y, w, h });
   }
 
   // 短标尺线:封面/结束页/致谢页共用,与目录页那条同族
@@ -417,8 +422,10 @@ class Deck {
   _coverSplit(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
     const BW = 4.52, PX = 5.02, PW = W - PX - M;
-    s.background = { color: th.wash };
-    this._fade(ctx, BW, "right");     // 必须在实色块之前:让实色块盖住搭接
+    // 蜂窝先铺,左边一截会被实色块盖掉——正是 Li-S 那份的做法。
+    // split 不放地标线描:右白区被标题、副题、分界线、信息区占满,
+    // 真正的空白只有 1in 高,放进去必压字。地标归 plate 变体(它才是 MoS2 的版式)。
+    this._decor(ctx, "honeycomb", { x: BW, y: 0, h: 3.9 });
     s.addShape(R, { x: 0, y: 0, w: BW, h: H, fill: { color: th.primary }, line: { type: "none" } });
     const bx = 0.62, bw = BW - bx - 0.6;
     if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 12, color: th.onDark, bold: true, charSpacing: 3 }),
@@ -459,8 +466,6 @@ class Deck {
   _coverPlate(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
     const bandY = 5.62;
-    s.background = { color: th.wash };
-    this._fade(ctx, bandY, "up");
     if (this.brand.logo) {
       const d = imgSize(this.brand.logo), h = 0.62, w = h * d.w / d.h;
       s.addImage({ path: this.brand.logo, x: M, y: 0.58, w, h });
@@ -485,7 +490,9 @@ class Deck {
     const art = this.meta.coverArt;
     // plate 的中段是留给刊名 logo / 概念图的。两个都不给,标题与色带之间会空出
     // 近 3in 的白——那正是"看着像模版没填完"的样子。
-    if (!(jl && fs.existsSync(jl)) && !(art && fs.existsSync(art))) this.warns.push(
+    // pku 主题例外:地标线描已经占住了中段右半幅,不算空。
+    if (!this._hasDecor("landmarks") &&
+        !(jl && fs.existsSync(jl)) && !(art && fs.existsSync(art))) this.warns.push(
       `plate 封面缺少 journalLogo 与 coverArt,中段留白约 3in——` +
       `文献汇报挂刊名 logo,其它场合配一张概念图,或改用 coverStyle: "split"`);
     if (art && fs.existsSync(art)) {
@@ -495,13 +502,18 @@ class Deck {
       s.addImage({ path: art, x: W - M - w, y: bandY - h + 0.3, w, h });
     }
     s.addShape(R, { x: 0, y: bandY, w: W, h: H - bandY, fill: { color: th.primary }, line: { type: "none" } });
+    // 地标压在红带之上:线描自带自上而下的 alpha 渐隐,与红带同色,
+    // 下半截会自然沉进红块——这是 MoS2 原件的 z 序,反过来画就成了被切一刀。
+    this._decor(ctx, "landmarks", { right: 0.2, y: bandY - 1.87, w: 5.75 });
     if (m.presenter) s.addText(this.runs(m.presenter, { fontSize: 20, color: th.onDark, bold: true }),
       { x: M, y: bandY + 0.42, w: CW * 0.5, h: 0.44, margin: 0, valign: "middle" });
     const sub = [m.date].filter(Boolean).join("");
     if (sub) s.addText(this.runs(sub, { fontSize: 13.5, color: th.onDarkSub }),
       { x: M, y: bandY + 0.94, w: CW * 0.5, h: 0.34, margin: 0, valign: "middle" });
+    // 单位跟在日期之后、同样靠左。带内右半幅留给地标线描——
+    // 右对齐会被塔身压住,MoS2 原件的带内也只有左侧一列信息。
     if (m.org) s.addText(this.runs(m.org, { fontSize: 13.5, color: th.onDarkSub }),
-      { x: M + CW * 0.5, y: bandY + 0.68, w: CW * 0.5, h: 0.34, margin: 0, align: "right", valign: "middle" });
+      { x: M, y: bandY + 1.34, w: CW * 0.55, h: 0.34, margin: 0, valign: "middle" });
     if (a.notes) s.addNotes(a.notes);
   }
 
@@ -516,9 +528,7 @@ class Deck {
       `请缩短题名或改用 coverStyle: "split"`);
     const hasSub = !!(m.subtitle || m.occasion);
     const bandH = Math.max(3.0, t.h + (hasSub ? 1.5 : 0.9) + 0.9);
-    s.background = { color: th.wash };
-    this._fade(ctx, bandTop, "up", { span: 0.75, peak: 9 });
-    this._fade(ctx, bandTop + bandH, "down", { span: 0.75, peak: 9 });
+    this._decor(ctx, "honeycomb", { x: W - 4.6, y: 0, h: 2.4 });
     s.addShape(R, { x: 0, y: bandTop, w: W, h: bandH, fill: { color: th.primary }, line: { type: "none" } });
     if (this.brand.seal) {
       const d = imgSize(this.brand.seal), sw = sealH * d.w / d.h;
@@ -606,6 +616,9 @@ class Deck {
   // ---------- 章节过渡页 ----------
   _section(ctx, a) {
     const th = this.theme, s = ctx.slide;
+    // 章节页右上角铺蜂窝(Li-S 那份的章节页手法)。它落在超大章节号与
+    // 右上角标之间的空区,不与任何文字相交。
+    this._decor(ctx, "honeycomb", { right: 0, y: 0, h: 3.1 });
     this._brandCorner(ctx);
     // 超大章节号(浅色) + PART 标签
     s.addText([{ text: String(a.idx).padStart(2, "0"), options: {
@@ -1129,7 +1142,7 @@ class Deck {
   // 让观众盯着一句客套话十分钟,takeaway 槽位放最想被记住的那句结论。
   _closing(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
-    this._fade(ctx, 7.44, "up", { span: 1.75, peak: 8 });
+    this._decor(ctx, "campus", { x: 0, y: 0, w: W, h: H });
     this._brandCorner(ctx);
     const main = a.main || KINDS[this.kind].closing[this.lang] || this.L.closingMain;
     const t = this._measureTitle(main, 34, CW);
@@ -1179,7 +1192,7 @@ class Deck {
     const th = this.theme, s = ctx.slide, R = this.pres.shapes.RECTANGLE;
     // 与封面同一把梯子、同一个色、同一种衰减,但**没有实色块**:
     // 封面是"面",致谢是"面的影子"。不设 background,保持与内容页同骨架。
-    this._fade(ctx, 0, "down", { span: 2.6, bleed: 0 });
+    this._decor(ctx, "campus", { x: 0, y: 0, w: W, h: H });
     this._brandCorner(ctx);
     s.addText(this.runs(this.L.ack, { fontSize: 30, color: th.primary, bold: true, charSpacing: this.lang === "zh" ? 6 : 0 }),
       { x: M, y: 0.62, w: 6, h: 0.6, margin: 0 });
@@ -1240,25 +1253,6 @@ async function postProcess(fileName, { transition, cjkFont }) {
       if (xml.includes("<p:transition")) continue;
       zip.file(n, xml.replace("</p:sld>", `<p:transition spd="med">${frag}</p:transition></p:sld>`));
     }
-  }
-  // 背景渐变:把 _fade 留下的纯色锚点换成真 gradFill。
-  // a:lin 的 ang 单位是 1/60000 度,自 x 正向顺时针量:
-  //   0 = 左→右、5400000 = 上→下、16200000 = 下→上。
-  // 起点是最浓的一端(anchor 所在侧),终点 alpha 归零。
-  const ANG = { right: 0, down: 5400000, up: 16200000 };
-  for (const n of Object.keys(zip.files).filter((x) => /^ppt\/slides\/slide\d+\.xml$/.test(x))) {
-    let xml = await zip.file(n).async("string");
-    if (!xml.includes(FADE_TAG)) continue;
-    xml = xml.replace(
-      new RegExp(`(<p:sp>(?:(?!</p:sp>)[\\s\\S])*?name="${FADE_TAG}([a-z]+):([0-9A-Fa-f]{6}):(\\d+)"[\\s\\S]*?)<a:solidFill>[\\s\\S]*?</a:solidFill>`, "g"),
-      (m, head, dir, color, peak) => {
-        const a = Math.round(Number(peak) * 1000);
-        return `${head}<a:gradFill rotWithShape="1"><a:gsLst>` +
-          `<a:gs pos="0"><a:srgbClr val="${color}"><a:alpha val="${a}"/></a:srgbClr></a:gs>` +
-          `<a:gs pos="100000"><a:srgbClr val="${color}"><a:alpha val="0"/></a:srgbClr></a:gs>` +
-          `</a:gsLst><a:lin ang="${ANG[dir] ?? 0}" scaled="0"/></a:gradFill>`;
-      });
-    zip.file(n, xml);
   }
   if (cjkFont) {
     const esc = cjkFont.replace(/&/g, "&amp;").replace(/"/g, "&quot;");

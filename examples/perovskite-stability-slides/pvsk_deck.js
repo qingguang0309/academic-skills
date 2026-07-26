@@ -4,6 +4,8 @@ const { Deck } = require("./slidekit");
 
 const d = new Deck({
   theme: "pku", lang: "zh", kind: "defense",
+  // plate 封面:校徽横排在左上、地标线描沉进底部红带——与参考的真实汇报同构
+  coverStyle: "plate",
   // 手动断行：14 字标题在 42pt / 7.59in 下会折成 "…稳定\n性"，末行留一个孤字
   title: "钙钛矿太阳能电池的\n湿热稳定性",
   subtitle: "把封装从“挡水”重新定义为“抬高迁移势垒”",
