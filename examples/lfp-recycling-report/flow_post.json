@@ -1,0 +1,79 @@
+{
+  "theme": "pku",
+  "direction": "TB",
+  "nodes": [
+    {
+      "id": "filt",
+      "label": "固液分离"
+    },
+    {
+      "id": "res",
+      "label": "滤渣：石墨与磷酸铁\n返回前段或外售",
+      "tone": "tint"
+    },
+    {
+      "id": "q",
+      "label": "锂浸出率 ≥ 95%？",
+      "shape": "decision"
+    },
+    {
+      "id": "pur",
+      "label": "除杂：调 pH 至 5.5\n沉铝铁"
+    },
+    {
+      "id": "li",
+      "label": "碳酸锂沉淀\nNa₂CO₃ / 95 ℃",
+      "tone": "emphasis"
+    },
+    {
+      "id": "prod",
+      "label": "电池级 Li₂CO₃\n纯度 99.5%"
+    },
+    {
+      "id": "waste",
+      "label": "母液蒸发结晶\n回收 Na₂SO₄",
+      "tone": "tint"
+    },
+    {
+      "id": "back",
+      "label": "补酸延时后返回浸出\n（见图 2-1）",
+      "tone": "tint"
+    }
+  ],
+  "edges": [
+    {
+      "from": "filt",
+      "to": "res",
+      "label": "固相"
+    },
+    {
+      "from": "filt",
+      "to": "q",
+      "label": "液相"
+    },
+    {
+      "from": "q",
+      "to": "pur",
+      "label": "是"
+    },
+    {
+      "from": "q",
+      "to": "back",
+      "label": "否",
+      "style": "dashed"
+    },
+    {
+      "from": "pur",
+      "to": "li"
+    },
+    {
+      "from": "li",
+      "to": "prod"
+    },
+    {
+      "from": "li",
+      "to": "waste",
+      "label": "母液"
+    }
+  ]
+}

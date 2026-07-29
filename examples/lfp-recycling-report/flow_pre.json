@@ -1,0 +1,18 @@
+{
+  "theme": "pku", "direction": "TB",
+  "nodes": [
+    {"id": "pack", "label": "退役 LFP 电池包\n荷电态 SOC < 5%"},
+    {"id": "dis", "label": "放电与拆解\nNaCl 溶液浸泡 24 h"},
+    {"id": "crush", "label": "破碎与筛分\n负压惰性气氛"},
+    {"id": "sep", "label": "黑粉分选\n>0.25 mm 铝铜富集"},
+    {"id": "al", "label": "铝铜箔碎料\n外售金属回收", "tone": "tint"},
+    {"id": "leach", "label": "硫酸—双氧水浸出\n90 ℃ / 2 mol·L⁻¹ / 90 min", "tone": "emphasis"}
+  ],
+  "edges": [
+    {"from": "pack", "to": "dis"},
+    {"from": "dis", "to": "crush"},
+    {"from": "crush", "to": "sep"},
+    {"from": "sep", "to": "al", "label": "筛上物"},
+    {"from": "sep", "to": "leach", "label": "黑粉（筛下物）"}
+  ]
+}

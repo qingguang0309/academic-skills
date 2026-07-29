@@ -155,13 +155,18 @@ class Doc:
             # 必须关自适应并写死表宽:autofit 下 Word 会按内容重算列宽,
             # 单元格上设的 width 被忽略,居中也就跟着偏。
             t.autofit = False
+            LW, VW = 3.6, 7.6
             tw = ordered_insert(t._tbl.tblPr, "w:tblW")
-            tw.set(qn("w:w"), str(int(10.8 * 567))); tw.set(qn("w:type"), "dxa")
+            tw.set(qn("w:w"), str(int((LW + VW) * 567))); tw.set(qn("w:type"), "dxa")
             set_val(t._tbl.tblPr, "w:tblLayout", "fixed", attr="w:type")
+            # 固定布局下渲染器以 w:tblGrid 为准,不看单元格上的 w:tcW。
+            # python-docx 建表时按版心宽平分写好了 gridCol,只设 cell.width 改不动它,
+            # 结果是列宽与设定不符、长院系名(如"材料科学与工程学院")被折成两行。
+            t.columns[0].width, t.columns[1].width = Cm(LW), Cm(VW)
             self._no_borders(t)
             for i, (k, v) in enumerate(rows):
                 lc, vc = t.rows[i].cells
-                lc.width, vc.width = Cm(4.0), Cm(6.8)
+                lc.width, vc.width = Cm(LW), Cm(VW)
                 self._cell_text(lc, f"{k}：", "cover.info", align="right")
                 self._cell_text(vc, v, "cover.info", align="center")
                 cell_bottom_border(vc, 6)              # 值下方的实线
@@ -374,12 +379,29 @@ class Doc:
             page_numbering(sec._sectPr, fmt=fmt, start=start)
         return sec
 
+    # 页码体系按文档类型分两套。两者不能混:一旦某一节重排页码,PAGE 就是节内页码,
+    # 而 NUMPAGES 永远是全文页数,分子分母不同基准,末页会印出"第 14 页 / 共 16 页"
+    # 这种读起来还剩两页的东西。节内总页数域 SECTIONPAGES 实测 LibreOffice
+    # 完全不支持(只渲染成占位符),所以只能从体系上避开,不能靠换个域解决。
+    #
+    # 附带一条实测:LibreOffice 的 NUMPAGES 在有页码重排的文档里会多算,每个
+    # w:start 重排 +1(对照实验:同为 1 个分节符、真实 8 页,重排的报 9、不重排的报 8)。
+    # 起因是重排本身,不是分节符——所以 report 档不重排时,LO 下的总页数也是准的。
+    @property
+    def _is_thesis(self):
+        return self.meta.get("level") == "thesis"
+
     def _start_front_numbering(self):
         self._front_sec = self.d.sections[-1]
-        page_numbering(self._front_sec._sectPr, fmt="upperRoman", start=1)
+        if self._is_thesis:
+            page_numbering(self._front_sec._sectPr, fmt="upperRoman", start=1)
+        else:
+            page_numbering(self._front_sec._sectPr, fmt="decimal", start=None)
 
     def _start_body_numbering(self):
-        sec = self._new_section(fmt="decimal", start=1)
+        # thesis:正文从 1 重排(学位论文惯例),页脚随之只给页码不给总数;
+        # report:续排全文计数,页脚给完整的"第X页/共X页"。
+        sec = self._new_section(fmt="decimal", start=1 if self._is_thesis else None)
         self._body_sec = sec
 
     def _bookmark_num(self, par, label, disp, prefix_space=True):
@@ -480,11 +502,12 @@ class Doc:
             fp = sec.footer.paragraphs[0]
             fp.alignment = ALIGN["center"]
             pn = sec._sectPr.find(qn("w:pgNumType"))
+            restarts = pn is not None and pn.get(qn("w:start")) is not None
             roman = pn is not None and (pn.get(qn("w:fmt")) or "").endswith("Roman")
-            if roman:
-                # 前置部分只给罗马页码。写"共 N 页"会连 NUMPAGES 一起被本节的
-                # 罗马格式渲染成"共 VIII 页"——那是全文页数,却按前置格式显示,是错的。
-                field(fp, "PAGE", cached="I")
+            if restarts:
+                # 本节页码从 1 重排 → PAGE 是节内页码,与全文的 NUMPAGES 不同基准,
+                # 拼成"第X页/共X页"必然自相矛盾。只给页码。
+                field(fp, "PAGE", cached="I" if roman else "1")
             else:
                 self._run(fp, "第 ", "footer")
                 field(fp, "PAGE", cached="1")

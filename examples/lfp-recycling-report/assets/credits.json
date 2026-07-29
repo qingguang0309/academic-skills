@@ -1,0 +1,20 @@
+{
+  "laboratory_fume_hood_che_1.jpg": {
+    "title": "WorkingAtFumeHood",
+    "creator": "Walkerma",
+    "license": "CC BY-SA",
+    "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "source_page": "https://commons.wikimedia.org/w/index.php?curid=15097692",
+    "provider": "wikimedia",
+    "query": "laboratory fume hood chemistry"
+  },
+  "electric_vehicle_battery_2.jpg": {
+    "title": "Nomination 44 - Powertrain - Electric Vehicle Battery Pack",
+    "creator": "spe.automotive",
+    "license": "CC BY",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/",
+    "source_page": "https://www.flickr.com/photos/32775400@N06/8103795426",
+    "provider": "flickr",
+    "query": "electric vehicle battery module"
+  }
+}
