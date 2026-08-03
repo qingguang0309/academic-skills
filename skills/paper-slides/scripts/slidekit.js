@@ -195,10 +195,14 @@ class Deck {
     this.warns = [];
     // 首尾页的自带底图。应当是**已烘焙好淡化**的 PNG(见 examples 里的 make_bg.py):
     // 淡化烘进图里而不靠渲染器的透明度,PowerPoint / LibreOffice / 导出 PDF 才一致。
-    this.bgArt = (() => {
-      try { return opts.bgArt && fs.existsSync(opts.bgArt) ? opts.bgArt : null; }
-      catch (e) { return null; }
-    })();
+    const _img = (v) => {
+      try { return v && fs.existsSync(v) ? v : null; } catch (e) { return null; }
+    };
+    this.bgArt = _img(opts.bgArt);
+    // split 封面左侧竖块上的同源肌理:纯色大面积显平,叠一层同色系略浅的素材
+    // 让它沉进色块里(参考件在红带上叠浅调线描,同一手法)。
+    // 素材应当已按品牌橙烘焙好、且按 33.9% 画布宽裁切,见 examples 的 make_bg.py。
+    this.bgArtBlock = _img(opts.bgArtBlock);
     this.brand = this._resolveBrand(opts);
   }
 
@@ -456,6 +460,8 @@ class Deck {
     // 真正的空白只有 1in 高,放进去必压字。地标归 plate 变体(它才是 MoS2 的版式)。
     this._decor(ctx, "honeycomb", { x: BW, y: 0, h: 3.9 });
     s.addShape(R, { x: 0, y: 0, w: BW, h: H, fill: { color: this._fill() }, line: { type: "none" } });
+    // 画在实色块**之后**、文字之前:顺序反了会被色块整块盖掉
+    if (this.bgArtBlock) s.addImage({ path: this.bgArtBlock, x: 0, y: 0, w: BW, h: H });
     const bx = 0.62, bw = BW - bx - 0.6;
     if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 12, color: th.onDark, bold: true, charSpacing: 3 }),
       { x: bx, y: 2.6, w: bw, h: 0.34, margin: 0, align: "right", valign: "middle" });

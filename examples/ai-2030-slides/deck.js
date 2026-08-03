@@ -9,6 +9,7 @@ const d = new Deck({
   // 首尾页的极淡底图（输电塔剪影）。淡化已烘焙进 PNG，见 make_bg.py；
   // 选输电塔而非通用风景：本报告的结论就是电力最先咬合，底图与论点同源。
   bgArt: "assets/bg_grid.png",
+  bgArtBlock: "assets/bg_block.png",   // 左侧竖块上的同源肌理，与右侧跨接缝延续
   title: "通向 2030 年的\n人工智能算力曲线",
   subtitle: "外推、约束，与最先触及的那堵墙",
   shortTitle: "AI 算力曲线 2030",
