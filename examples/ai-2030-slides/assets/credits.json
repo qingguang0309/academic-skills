@@ -25,32 +25,5 @@
     "source_page": "https://www.flickr.com/photos/20741443@N00/4257813689",
     "provider": "flickr",
     "query": "electricity transmission tower sunset"
-  },
-  "electricity_transmission_2.jpg": {
-    "title": "Power",
-    "creator": "Peter Kaminski",
-    "license": "CC BY",
-    "license_url": "https://creativecommons.org/licenses/by/2.0/",
-    "source_page": "https://www.flickr.com/photos/35034359460@N01/2173894219",
-    "provider": "flickr",
-    "query": "electricity transmission tower sunset"
-  },
-  "power_transmission_lines_1.jpg": {
-    "title": "Rural electricity",
-    "creator": "kevin dooley",
-    "license": "CC BY",
-    "license_url": "https://creativecommons.org/licenses/by/2.0/",
-    "source_page": "https://www.flickr.com/photos/12836528@N00/4244582472",
-    "provider": "flickr",
-    "query": "power transmission lines landscape"
-  },
-  "power_transmission_lines_2.jpg": {
-    "title": "High Voltage Line",
-    "creator": "ThomasKohler",
-    "license": "CC BY",
-    "license_url": "https://creativecommons.org/licenses/by/2.0/",
-    "source_page": "https://www.flickr.com/photos/28077296@N02/5787970432",
-    "provider": "flickr",
-    "query": "power transmission lines landscape"
   }
 }

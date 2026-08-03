@@ -62,6 +62,15 @@ const THEMES = {
     line: "E0D8E2", wash: "F6F3F7", washBorder: "E9E1EB", tint: "EFE7F0",
     onDark: "FFFFFF", onDarkSub: "CDB9CF",
   },
+  claude: { // 赤陶·暖砂 —— Anthropic / Claude 配色(取自本仓库 web 工作台已用的色值)
+    // 品牌橙 D97757 在白底上只有 3.1:1,当 12pt 正文色不达标,因此它只出现在
+    // 填充与强调(warm/tint/onDarkSub 一族);primary 与 accent 取同色相的深调,
+    // 与其它四套主题保持同一结构关系:primary 7—11 : 1、accent 4.5—5.9 : 1。
+    primary: "7A3A1D", accent: "A8492A", warm: "C9862A",
+    ink: "2B2823", muted: "6B635A", faint: "A79E93",
+    line: "E4E0D3", wash: "F5F3EC", washBorder: "EAE6D8", tint: "F3E3D8",
+    onDark: "FFFFFF", onDarkSub: "EFC7AE",
+  },
   pku: { // 北大红·燕园金 —— 北京大学官方模版配色(北大红 9A0001 / 燕园金 CEAB6E)
     primary: "9A0001", accent: "BE2A2E", warm: "CEAB6E",
     ink: "2A2422", muted: "797069", faint: "A79E97",

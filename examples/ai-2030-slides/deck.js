@@ -1,10 +1,10 @@
-// 通向 2030 年的人工智能算力曲线 —— 学术报告（paper-slides / azure 主题，无校徽）
+// 通向 2030 年的人工智能算力曲线 —— 学术报告（paper-slides / claude 主题，无校徽）
 // 内容与 ../ai-2030-forecast/paper.tex 同源；四份一手来源均已核实，图中不出现无出处数值。
 const { Deck } = require("./slidekit");
 
 const d = new Deck({
-  theme: "azure", lang: "zh", kind: "groupmeeting", coverStyle: "split",
-  // azure 主题本身不带任何校徽；显式置 false 是为了防止将来换主题时被默认值带回来
+  theme: "claude", lang: "zh", kind: "groupmeeting", coverStyle: "split",
+  // claude 主题本身不带任何校徽；显式置 false 是为了防止将来换主题时被默认值带回来
   logo: false, seal: false,
   // 首尾页的极淡底图（输电塔剪影）。淡化已烘焙进 PNG，见 make_bg.py；
   // 选输电塔而非通用风景：本报告的结论就是电力最先咬合，底图与论点同源。

@@ -9,8 +9,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-INK, ACC, GREY = "#1F3A5F", "#C0504D", "#6E7681"      # 与 slidekit azure 主题同调
-WARM, COOL = "#C9A227", "#2F6FAE"
+# 与 slidekit claude 主题同调（primary / accent / muted / warm / tint 一族）
+# 第四色不用蓝：整套配色里不出现蓝，改用暖褐，靠明度而非色相拉开层次
+INK, ACC, GREY = "#7A3A1D", "#A8492A", "#6B635A"
+WARM, COOL = "#C9862A", "#B08968"
 plt.rcParams.update({
     "font.family": "sans-serif",
     "font.sans-serif": ["Arial Unicode MS", "Hiragino Sans GB"],
@@ -52,7 +54,7 @@ ax.annotate(f"反推的 2024 年基准 {sci(C_2024)}", xy=(2024, C_2024), xytext
 ax.set_yscale("log"); ax.set_xlim(2000, 2031); ax.set_ylim(1e10, 4e31)
 ax.set_xlabel("年份"); ax.set_ylabel("单次训练算力 (FLOP)")
 ax.legend(frameon=False, fontsize=11.5, loc="upper left")
-ax.grid(color="#E1E8F0", lw=0.7); ax.set_axisbelow(True)
+ax.grid(color="#E4E0D3", lw=0.7); ax.set_axisbelow(True)
 fig.savefig("assets/fig_trend.png"); plt.close(fig)
 
 # ── 图 2：四类约束天花板 ──
@@ -70,7 +72,7 @@ ax.text(2.6e29, 4.45, "综合结论 2×10²⁹", fontsize=12.5, color=ACC,
 ax.set_yticks(range(len(items)), [x[0] for x in items], fontsize=12.5)
 ax.set_xscale("log"); ax.set_xlim(3e27, 6e32); ax.set_ylim(-0.7, 4.9)
 ax.set_xlabel("2030 年该约束单独允许的训练算力上限 (FLOP)")
-ax.grid(axis="x", color="#E1E8F0", lw=0.7); ax.set_axisbelow(True)
+ax.grid(axis="x", color="#E4E0D3", lw=0.7); ax.set_axisbelow(True)
 fig.savefig("assets/fig_ceilings.png"); plt.close(fig)
 
 # ── 图 3：数据墙 ──
@@ -79,7 +81,7 @@ C = np.logspace(np.log10(C0) - 2, np.log10(2e29), 200)
 ax.plot(C, D0 * (C / C0) ** 0.5, "-", color=ACC, lw=3.0, label=r"训练 token 数 $D \propto C^{1/2}$")
 ax.plot(C, N0 * (C / C0) ** 0.5, "-", color=INK, lw=3.0, label=r"参数量 $N \propto C^{1/2}$")
 ax.axhline(3e14, color=WARM, lw=2.0, ls="-.")
-ax.text(C0 * 3e-2, 4.6e14, "公开人类文本存量 ≈ 3×10¹⁴ token", fontsize=12, color="#8A6A2E")
+ax.text(C0 * 3e-2, 4.6e14, "公开人类文本存量 ≈ 3×10¹⁴ token", fontsize=12, color="#8A6320")
 C_cross = C0 * (3e14 / D0) ** 2
 ax.plot([C_cross], [3e14], "o", ms=12, color=ACC, zorder=6)
 ax.annotate(f"D 触及存量\nC ≈ {sci(C_cross)} FLOP", xy=(C_cross, 3e14),
@@ -89,7 +91,7 @@ ax.axvline(2e29, color=GREY, lw=1.2, ls=":")
 ax.set_xscale("log"); ax.set_yscale("log"); ax.set_ylim(1e8, 6e16)
 ax.set_xlabel("训练算力 C (FLOP)"); ax.set_ylabel("参数量 N / token 数 D")
 ax.legend(frameon=False, fontsize=11.5, loc="upper left")
-ax.grid(color="#E1E8F0", lw=0.7); ax.set_axisbelow(True)
+ax.grid(color="#E4E0D3", lw=0.7); ax.set_axisbelow(True)
 fig.savefig("assets/fig_scaling.png"); plt.close(fig)
 
 # ── 图 4：增速敏感性 ──
@@ -108,7 +110,7 @@ ax.annotate("4×/年 → 2×10²⁹", xy=(4.0, C_2030), xytext=(4.3, 5e27),
 ax.set_yscale("log"); ax.set_xlim(1.5, 6.0); ax.set_ylim(1e26, 1e32)
 ax.set_xlabel("2024—2030 年持续保持的算力年增倍数 g")
 ax.set_ylabel("2030 年可达算力 (FLOP)")
-ax.grid(color="#E1E8F0", lw=0.7); ax.set_axisbelow(True)
+ax.grid(color="#E4E0D3", lw=0.7); ax.set_axisbelow(True)
 fig.savefig("assets/fig_sensitivity.png"); plt.close(fig)
 
 print(f"4 张投影版图已生成；C_2024={sci(C_2024)}，数据墙 C={sci(C_cross)}"
