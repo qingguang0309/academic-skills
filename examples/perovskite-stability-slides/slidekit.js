@@ -94,12 +94,12 @@ const LANG = {
   zh: { toc: "目 录", refs: "参考文献", fig: "图", tab: "表",
         presenter: "汇报人", advisor: "指导教师", part: "PART",
         closingMain: "恳请各位专家批评指正", appendix: "附录",
-        ack: "致 谢", ackPeople: "指导与合作", ackSupport: "项目与平台支持" },
+        ack: "致 谢", ackPeople: "指导与合作", ackSupport: "项目与平台支持", org: "单位" },
   en: { toc: "Contents", refs: "References", fig: "Fig.", tab: "Table",
         presenter: "Presenter", advisor: "Advisor", part: "PART",
         closingMain: "Thank You", appendix: "Appendix",
         ack: "Acknowledgements", ackPeople: "Supervision & Collaboration",
-        ackSupport: "Funding & Facilities" },
+        ackSupport: "Funding & Facilities", org: "Affiliation" },
 };
 
 // 场合档位:决定封面变体与结束页主文字。答辩要"恳请指正",组会/文献汇报
@@ -182,6 +182,12 @@ class Deck {
     this.sections = [];       // {title, note, opIndex}
     this.figN = 0; this.tabN = 0; this.realPhotos = 0; this.hasChart = false;
     this.warns = [];
+    // 首尾页的自带底图。应当是**已烘焙好淡化**的 PNG(见 examples 里的 make_bg.py):
+    // 淡化烘进图里而不靠渲染器的透明度,PowerPoint / LibreOffice / 导出 PDF 才一致。
+    this.bgArt = (() => {
+      try { return opts.bgArt && fs.existsSync(opts.bgArt) ? opts.bgArt : null; }
+      catch (e) { return null; }
+    })();
     this.brand = this._resolveBrand(opts);
   }
 
@@ -362,14 +368,20 @@ class Deck {
   // 素材背景。等比缩放,不拉伸——真实汇报里的地标线描被横向拉过 1.455 倍,
   // 塔身明显变胖,那是它们手拍坐标的代价,不必跟着犯。
   // 只在 pku 主题下有素材;其它主题静默跳过,首尾页保持纯白。
+  // 内置素材是机构专属的(地标线描、校园照),只在 pku 主题下启用。
+  // 但"首尾页要一层极淡底图"是通用需求,所以 campus 槽位允许作者自带:
+  // new Deck({ bgArt: "assets/bg.png" })。自带图优先于内置素材,且不看主题。
   _hasDecor(which) {
+    if (which === "campus" && this.bgArt) return true;
     return this.theme === THEMES.pku &&
       fs.existsSync(path.join(__dirname, "assets", DECOR[which]));
   }
 
   _decor(ctx, which, o = {}) {
     if (!this._hasDecor(which)) return;
-    const p = path.join(__dirname, "assets", DECOR[which]);
+    const p = (which === "campus" && this.bgArt)
+      ? this.bgArt
+      : path.join(__dirname, "assets", DECOR[which]);
     const d = imgSize(p);
     let w = o.w, h = o.h;
     if (w && !h) h = w * d.h / d.w;
@@ -422,6 +434,8 @@ class Deck {
   _coverSplit(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
     const BW = 4.52, PX = 5.02, PW = W - PX - M;
+    // 自带底图铺最底层:后面的实色块/色带会盖住它压到的部分,正是参考件的做法
+    this._decor(ctx, "campus", { x: 0, y: 0, w: W, h: H });
     // 蜂窝先铺,左边一截会被实色块盖掉——正是 Li-S 那份的做法。
     // split 不放地标线描:右白区被标题、副题、分界线、信息区占满,
     // 真正的空白只有 1in 高,放进去必压字。地标归 plate 变体(它才是 MoS2 的版式)。
@@ -451,14 +465,16 @@ class Deck {
         { x: PX, y, w: PW, h: 0.4, margin: 0, valign: "middle" });
     }
     s.addShape(R, { x: BW, y: 5.62, w: W - M - BW, h: 0.012, fill: { color: th.line }, line: { type: "none" } });
-    this._infoRows(ctx, {
-      x: PX, y: 5.86, w: PW,
-      rows: [[this.L.advisor, m.advisor], ["", m.advisor ? null : m.org]],
-    });
-    if (m.advisor && m.org) s.addText(this.runs(m.org, { fontSize: 12.5, color: th.muted }),
-      { x: PX, y: 6.52, w: PW, h: 0.3, margin: 0, valign: "middle" });
-    else if (!m.advisor && m.org) s.addText(this.runs(m.org, { fontSize: 14, color: th.ink }),
-      { x: PX, y: 5.9, w: PW, h: 0.3, margin: 0, valign: "middle" });
+    // 有导师:导师进标签—值信息区,单位以小字附在下方(两级层次)。
+    // 无导师:单位自己占信息区,不再另画——旧写法两条分支都会画一次 org,
+    // 相差 0.04in,渲染出来是重影。
+    if (m.advisor) {
+      this._infoRows(ctx, { x: PX, y: 5.86, w: PW, rows: [[this.L.advisor, m.advisor]] });
+      if (m.org) s.addText(this.runs(m.org, { fontSize: 12.5, color: th.muted }),
+        { x: PX, y: 6.52, w: PW, h: 0.3, margin: 0, valign: "middle" });
+    } else if (m.org) {
+      this._infoRows(ctx, { x: PX, y: 5.86, w: PW, rows: [[this.L.org, m.org]] });
+    }
     if (a.notes) s.addNotes(a.notes);
   }
 
@@ -466,6 +482,8 @@ class Deck {
   _coverPlate(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
     const bandY = 5.62;
+    // 自带底图铺最底层:后面的实色块/色带会盖住它压到的部分,正是参考件的做法
+    this._decor(ctx, "campus", { x: 0, y: 0, w: W, h: H });
     if (this.brand.logo) {
       const d = imgSize(this.brand.logo), h = 0.62, w = h * d.w / d.h;
       s.addImage({ path: this.brand.logo, x: M, y: 0.58, w, h });
@@ -524,6 +542,8 @@ class Deck {
     const sealH = 1.15, sealTop = 0.62, bandTop = sealTop + sealH;
     const tSize = a.titleSize || T.coverTitle;
     const t = this._measureTitle(m.title, tSize, W - 2.4);
+    // 自带底图铺最底层:后面的实色块/色带会盖住它压到的部分,正是参考件的做法
+    this._decor(ctx, "campus", { x: 0, y: 0, w: W, h: H });
     if (t.lines >= 4) this.warns.push(`封面标题 ${t.lines} 行(${tSize}pt)——band 式红带放不下,` +
       `请缩短题名或改用 coverStyle: "split"`);
     const hasSub = !!(m.subtitle || m.occasion);
@@ -564,6 +584,8 @@ class Deck {
   // 变体 solid:满版纯色(旧 plain 行为,保留给不需要校徽的场合)
   _coverSolid(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta;
+    // 自带底图铺最底层:后面的实色块/色带会盖住它压到的部分,正是参考件的做法
+    this._decor(ctx, "campus", { x: 0, y: 0, w: W, h: H });
     s.background = { color: th.primary };
     if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 13, color: th.onDarkSub, bold: true, charSpacing: 3.4 }),
       { x: M, y: 0.78, w: CW, h: 0.4, margin: 0, valign: "middle" });
