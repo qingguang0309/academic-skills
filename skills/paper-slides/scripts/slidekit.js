@@ -62,14 +62,16 @@ const THEMES = {
     line: "E0D8E2", wash: "F6F3F7", washBorder: "E9E1EB", tint: "EFE7F0",
     onDark: "FFFFFF", onDarkSub: "CDB9CF",
   },
-  claude: { // 赤陶·暖砂 —— Anthropic / Claude 配色(取自本仓库 web 工作台已用的色值)
-    // 品牌橙 D97757 在白底上只有 3.1:1,当 12pt 正文色不达标,因此它只出现在
-    // 填充与强调(warm/tint/onDarkSub 一族);primary 与 accent 取同色相的深调,
-    // 与其它四套主题保持同一结构关系:primary 7—11 : 1、accent 4.5—5.9 : 1。
-    primary: "7A3A1D", accent: "A8492A", warm: "C9862A",
+  claude: { // 赤陶·暖砂 —— Anthropic / Claude 配色(brand 色取自 Claude.app 图标实测)
+    // brand 与 primary 分工:brand 只做**填充**(封面竖块、色带、标尺线),
+    // primary 只做**文字**。一个 token 干不了两份活——品牌橙 D97757 作填充很好
+    // (近黑压其上 4.70:1),但作 25pt 标题压浅底只有 2.92:1,连大字 3:1 都不到。
+    // 橙底上能读的字实际只有近黑一种:稍提亮到 38302A 就跌到 4.14,
+    // 因此 onDark 与 onDarkSub 同色,标签与值的层次交给字号(11pt / 14pt)。
+    brand: "D97757", primary: "B4552D", accent: "A8492A", warm: "C9862A",
     ink: "2B2823", muted: "6B635A", faint: "A79E93",
-    line: "E4E0D3", wash: "F5F3EC", washBorder: "EAE6D8", tint: "F3E3D8",
-    onDark: "FFFFFF", onDarkSub: "EFC7AE",
+    line: "EADFD6", wash: "FAF7F4", washBorder: "F0E2D9", tint: "F7E7DE",
+    onDark: "2B2823", onDarkSub: "2B2823",
   },
   pku: { // 北大红·燕园金 —— 北京大学官方模版配色(北大红 9A0001 / 燕园金 CEAB6E)
     primary: "9A0001", accent: "BE2A2E", warm: "CEAB6E",
@@ -374,6 +376,10 @@ class Deck {
   // 固定间距在 42pt 下会让标尺线贴住末行字,读起来像下划线而不是独立元素。
   _rulerGap(size) { return 0.24 + (size / 72) * 0.38; }
 
+  // 填充色。主题可用 brand 把"大色块"与"文字"分开:不设 brand 的主题
+  // 回落到 primary,行为与从前完全一致。
+  _fill() { return this.theme.brand || this.theme.primary; }
+
   // 素材背景。等比缩放,不拉伸——真实汇报里的地标线描被横向拉过 1.455 倍,
   // 塔身明显变胖,那是它们手拍坐标的代价,不必跟着犯。
   // 只在 pku 主题下有素材;其它主题静默跳过,首尾页保持纯白。
@@ -449,7 +455,7 @@ class Deck {
     // split 不放地标线描:右白区被标题、副题、分界线、信息区占满,
     // 真正的空白只有 1in 高,放进去必压字。地标归 plate 变体(它才是 MoS2 的版式)。
     this._decor(ctx, "honeycomb", { x: BW, y: 0, h: 3.9 });
-    s.addShape(R, { x: 0, y: 0, w: BW, h: H, fill: { color: th.primary }, line: { type: "none" } });
+    s.addShape(R, { x: 0, y: 0, w: BW, h: H, fill: { color: this._fill() }, line: { type: "none" } });
     const bx = 0.62, bw = BW - bx - 0.6;
     if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 12, color: th.onDark, bold: true, charSpacing: 3 }),
       { x: bx, y: 2.6, w: bw, h: 0.34, margin: 0, align: "right", valign: "middle" });
@@ -528,7 +534,7 @@ class Deck {
       const w = d.w * sc, h = d.h * sc;
       s.addImage({ path: art, x: W - M - w, y: bandY - h + 0.3, w, h });
     }
-    s.addShape(R, { x: 0, y: bandY, w: W, h: H - bandY, fill: { color: th.primary }, line: { type: "none" } });
+    s.addShape(R, { x: 0, y: bandY, w: W, h: H - bandY, fill: { color: this._fill() }, line: { type: "none" } });
     // 地标压在红带之上:线描自带自上而下的 alpha 渐隐,与红带同色,
     // 下半截会自然沉进红块——这是 MoS2 原件的 z 序,反过来画就成了被切一刀。
     this._decor(ctx, "landmarks", { right: 0.2, y: bandY - 1.87, w: 5.75 });
@@ -558,7 +564,7 @@ class Deck {
     const hasSub = !!(m.subtitle || m.occasion);
     const bandH = Math.max(3.0, t.h + (hasSub ? 1.5 : 0.9) + 0.9);
     this._decor(ctx, "honeycomb", { x: W - 4.6, y: 0, h: 2.4 });
-    s.addShape(R, { x: 0, y: bandTop, w: W, h: bandH, fill: { color: th.primary }, line: { type: "none" } });
+    s.addShape(R, { x: 0, y: bandTop, w: W, h: bandH, fill: { color: this._fill() }, line: { type: "none" } });
     if (this.brand.seal) {
       const d = imgSize(this.brand.seal), sw = sealH * d.w / d.h;
       s.addImage({ path: this.brand.seal, x: (W - sw) / 2, y: sealTop, w: sw, h: sealH });
@@ -595,7 +601,7 @@ class Deck {
     const th = this.theme, s = ctx.slide, m = this.meta;
     // 自带底图铺最底层:后面的实色块/色带会盖住它压到的部分,正是参考件的做法
     this._decor(ctx, "campus", { x: 0, y: 0, w: W, h: H });
-    s.background = { color: th.primary };
+    s.background = { color: this._fill() };
     if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 13, color: th.onDarkSub, bold: true, charSpacing: 3.4 }),
       { x: M, y: 0.78, w: CW, h: 0.4, margin: 0, valign: "middle" });
     const tSize = a.titleSize || T.coverTitle;
@@ -891,7 +897,7 @@ class Deck {
         const x = box.x + i * (cw + gw);
         // 顶部标尺线代替填充块:数字靠字号与留白立住,不靠底色
         s.addShape(this.pres.shapes.RECTANGLE, { x, y: box.y, w: cw, h: 0.026,
-          fill: { color: th.primary }, line: { type: "none" } });
+          fill: { color: this._fill() }, line: { type: "none" } });
         s.addText(this.runs(it.value, { fontSize: this._fs(T.statValue, sc), color: th.primary, bold: true }), {
           x, y: box.y + 0.16, w: cw, h: 0.66, margin: 0, align: "left", valign: "middle" });
         s.addText(this.runs(it.label, { fontSize: this._fs(T.statLabel, sc), color: th.ink, bold: true }), {
@@ -1108,7 +1114,7 @@ class Deck {
       // 伪代码:左侧竖线 + 等宽行号,不画框不填色
       const sz = this._fs(b.size || 12.5, sc);
       s.addShape(this.pres.shapes.RECTANGLE, { x: box.x, y: box.y + 0.02, w: 0.026,
-        h: Math.max(box.h - 0.06, 0.2), fill: { color: th.primary }, line: { type: "none" } });
+        h: Math.max(box.h - 0.06, 0.2), fill: { color: this._fill() }, line: { type: "none" } });
       let y = box.y + 0.02;
       if (b.title) {
         s.addText(this.runs(b.title, { fontSize: sz + 1, color: th.primary, bold: true }), {
@@ -1195,7 +1201,7 @@ class Deck {
 
     // 三级消隐线:实 1.50in → 中 3.20in → 虚 7.19in。y=5.62 与 plate 封面色带上沿、
     // split 封面信息区分界线是同一条——封面在这条线上是"面",结束页缩成一条消散的线。
-    s.addShape(R, { x: M, y: 5.615, w: 1.50, h: 0.030, fill: { color: th.primary }, line: { type: "none" } });
+    s.addShape(R, { x: M, y: 5.615, w: 1.50, h: 0.030, fill: { color: this._fill() }, line: { type: "none" } });
     s.addShape(R, { x: M + 1.50, y: 5.624, w: 3.20, h: 0.012, fill: { color: th.line }, line: { type: "none" } });
     s.addShape(R, { x: M + 4.70, y: 5.627, w: CW - 4.70, h: 0.006, fill: { color: th.washBorder }, line: { type: "none" } });
     const cols = [];
@@ -1212,7 +1218,7 @@ class Deck {
         { x: W - M - 1.9, y: 6.78, w: 1.9, h: 0.28, margin: 0, align: "right", valign: "middle" });
     }
     // 底部细带:与封面的整块色形成一厚一薄的呼应
-    s.addShape(R, { x: 0, y: 7.44, w: W, h: 0.06, fill: { color: th.primary }, line: { type: "none" } });
+    s.addShape(R, { x: 0, y: 7.44, w: W, h: 0.06, fill: { color: this._fill() }, line: { type: "none" } });
     if (a.notes) s.addNotes(a.notes);
   }
 
@@ -1253,7 +1259,7 @@ class Deck {
     });
     if (a.group) s.addText(this.runs(a.group, { fontSize: 13, color: th.muted }),
       { x: M, y: 6.16, w: CW, h: 0.32, margin: 0, valign: "middle" });
-    s.addShape(R, { x: 0, y: 7.44, w: W, h: 0.06, fill: { color: th.primary }, line: { type: "none" } });
+    s.addShape(R, { x: 0, y: 7.44, w: W, h: 0.06, fill: { color: this._fill() }, line: { type: "none" } });
     this._footer(ctx);
     if (a.notes) s.addNotes(a.notes);
   }
