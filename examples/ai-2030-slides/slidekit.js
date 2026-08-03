@@ -203,6 +203,10 @@ class Deck {
     // 让它沉进色块里(参考件在红带上叠浅调线描,同一手法)。
     // 素材应当已按品牌橙烘焙好、且按 33.9% 画布宽裁切,见 examples 的 make_bg.py。
     this.bgArtBlock = _img(opts.bgArtBlock);
+    // split 封面色块左上角的标识(白色单色图,透明底)。与 logo 不同:
+    // logo 是内容页右上角的横排锁定版,这个只出现在封面、且压在色块上。
+    this.coverMark = _img(opts.coverMark);
+    this.coverMarkH = opts.coverMarkH || 1.45;   // 高度(in),等比缩放
     this.brand = this._resolveBrand(opts);
   }
 
@@ -463,6 +467,11 @@ class Deck {
     // 画在实色块**之后**、文字之前:顺序反了会被色块整块盖掉
     if (this.bgArtBlock) s.addImage({ path: this.bgArtBlock, x: 0, y: 0, w: BW, h: H });
     const bx = 0.62, bw = BW - bx - 0.6;
+    // 标识与块内文字共用左边界 bx,顶边与内容页角标同高(0.62),翻页时不跳
+    if (this.coverMark) {
+      const d = imgSize(this.coverMark), mh = this.coverMarkH;
+      s.addImage({ path: this.coverMark, x: bx, y: 0.62, w: mh * d.w / d.h, h: mh });
+    }
     if (m.occasion) s.addText(this.runs(m.occasion, { fontSize: 12, color: th.onDark, bold: true, charSpacing: 3 }),
       { x: bx, y: 2.6, w: bw, h: 0.34, margin: 0, align: "right", valign: "middle" });
     this._infoRows(ctx, {

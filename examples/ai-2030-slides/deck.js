@@ -10,6 +10,7 @@ const d = new Deck({
   // 选输电塔而非通用风景：本报告的结论就是电力最先咬合，底图与论点同源。
   bgArt: "assets/bg_grid.png",
   bgArtBlock: "assets/bg_block.png",   // 左侧竖块上的同源肌理，与右侧跨接缝延续
+  coverMark: "assets/claude_mark.png", coverMarkH: 1.5,  // 色块左上角的白色标识
   title: "通向 2030 年的\n人工智能算力曲线",
   subtitle: "外推、约束，与最先触及的那堵墙",
   shortTitle: "AI 算力曲线 2030",
