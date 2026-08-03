@@ -1,0 +1,7 @@
+[
+ { "id": "cnd",   "tex": "C \\approx 6\\,N\\,D", "size": 24 },
+ { "id": "chin",  "tex": "N_{\\mathrm{opt}} \\propto C^{1/2},\\qquad D_{\\mathrm{opt}} \\propto C^{1/2}", "size": 22 },
+ { "id": "grow",  "tex": "C(t) = C(t_0)\\,g^{\\,t-t_0}", "size": 23 },
+ { "id": "anchor","tex": "C_{2024} = \\frac{C_{2030}}{g^{6}} = \\frac{2\\times10^{29}}{4^{6}} \\approx 4.9\\times10^{25}", "size": 21 },
+ { "id": "data",  "tex": "C_{\\mathrm{data}} = C_0\\left(\\frac{D_{\\mathrm{data}}}{D_0}\\right)^{2} \\approx 2.7\\times10^{28}", "size": 21 }
+]
