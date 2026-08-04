@@ -9,3 +9,7 @@ examples/bse-eds-report/slides/assets/
 
 # 小红书图片等可再生的中间产物
 examples/*/xhs/
+
+# 精简版由 skills/paper-slides/make_lite.py 生成，不入库
+# 源头是 skills/paper-slides/(引擎 + lite/ 模板)，改那里重跑即可
+academic-deck/
