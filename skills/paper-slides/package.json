@@ -1,0 +1,10 @@
+{
+  "name": "paper-slides",
+  "version": "1.0.0",
+  "description": "学术汇报 PPT 生成 skill —— pptxgenjs + slidekit 组件库",
+  "private": true,
+  "dependencies": {
+    "pptxgenjs": "^4.0.1",
+    "jszip": "^3.10.1"
+  }
+}
