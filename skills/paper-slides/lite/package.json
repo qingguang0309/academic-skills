@@ -1,0 +1,10 @@
+{
+  "name": "academic-deck",
+  "version": "1.0.0",
+  "description": "中文学术汇报 PPT 生成 —— 声明块，不摆坐标",
+  "private": true,
+  "dependencies": {
+    "pptxgenjs": "^4.0.1",
+    "jszip": "^3.10.1"
+  }
+}

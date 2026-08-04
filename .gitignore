@@ -6,3 +6,6 @@ node_modules/
 .next/
 # 运行时按需收集的图素材(prepare_assets.sh 生成)
 examples/bse-eds-report/slides/assets/
+
+# 小红书图片等可再生的中间产物
+examples/*/xhs/
