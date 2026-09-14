@@ -160,8 +160,9 @@ def main():
     if grand:
         print(f"\n[wordlint] hard/always 共 {grand} 处。逐条处理:能给数字的给数字,"
               f"给不了的删掉——不要换个同样空的说法。")
-        print("[wordlint] 结构性痕迹(三项对称/句长均质/标题排比)脚本查不出,"
-              "按 content-discipline.md 第五节做人工节拍审计。")
+        print("[wordlint] 改完每句再问一次:换到别人的课题里是否照样成立?成立就补研究对象、方法、条件或证据。")
+        print("[wordlint] 结构性痕迹(三项对称/套分类模板/标题同构)脚本查不出,"
+              "按 content-discipline.md 第八节做人工节拍审计。")
     if args.strict and grand:
         sys.exit(1)
 

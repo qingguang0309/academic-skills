@@ -7,8 +7,8 @@
 精简掉什么、为什么:
   · pku 主题、内置素材(校徽/地标线描/校园照)及只服务它们的代码路径
     —— 机构专属,不适合公开分发。
-  · flowchart / formula / collage / aiimg / wordlint —— 各自带外部依赖
-    (Graphviz、TeX、DashScope),对"我只想快点做出一份好看的汇报"是负担。
+  · formula / collage / aiimg / wordlint —— 各自带外部依赖
+    (TeX、DashScope),对"我只想快点做出一份好看的汇报"是负担。
   · references/*.md —— 必要的块类型表直接写进精简版 SKILL.md,省掉跳转。
 
 保留 slidekit.js(引擎)与 fetchimg.py(取 CC 许可实景照片)。后者是这套东西
@@ -42,7 +42,9 @@ RESOLVE_BRAND = """  // 品牌资源。精简版不含任何内置素材,logo �
     const style = opts.coverStyle || kind.cover;
     const logo = opts.logo === false ? null : has(opts.logo);
     const seal = opts.seal === false ? null : has(opts.seal);
-    return { logo, seal, style, corner: opts.cornerLogo !== false && !!logo };
+    const logoWhite = opts.logoWhite === false ? null : has(opts.logoWhite);
+    const sealWhite = opts.sealWhite === false ? null : has(opts.sealWhite);
+    return { logo, seal, logoWhite, sealWhite, style, corner: opts.cornerLogo !== false && !!logo };
   }
 """
 

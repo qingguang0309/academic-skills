@@ -12,7 +12,7 @@
 //                        occasion:'开放基金汇报', presenter:'…', org:'…', date:'…' });
 //   d.cover(); d.toc();
 //   d.section('研究背景');
-//   d.page({ title:'完整结论句作页标题', blocks:[ {type:'bullets', items:[…]} ] });
+//   d.page({ title:'原型测试与后续验证', blocks:[ {type:'bullets', items:[…]} ] });
 //   d.refs([…]); d.closing(); d.build('out.pptx');
 // ============================================================
 "use strict";
@@ -29,17 +29,18 @@ const CONTENT_BOTTOM = 6.88;  // 内容区底界
 const GAP = 0.26;             // 块间默认间距
 const FILL_MIN = 0.62;       // 内容页填充率下限:低于此值发"页面太空"警告
 const SOURCE_BASE = 6.98;    // 页内来源行底沿(固定;多行向上生长)
-const SOURCE_LH = 0.28;      // 来源行行高
+const SOURCE_LH = 0.3;       // 来源行行高
 const SOURCE_GAP = 0.16;     // 来源行与正文的净空
 
 // ---------- 字阶(pt,13.33in 画布) ----------
+// 页题以外的文字整体放大到投影可读:正文 16–17.5,表格 15.5,结论条 18
 const T = {
-  coverTitle: 36, coverSub: 15, coverMeta: 13.5, kicker: 12,
-  pageTitle: 25, pageSub: 14,
-  sectionNum: 96, sectionTitle: 30, sectionNote: 14.5,
-  body: 17, small: 13, caption: 11.5, footer: 9.5,
-  statValue: 36, statLabel: 13.5, statNote: 11,
-  cardTitle: 14.5, cardBody: 12.5, tableBody: 13, ref: 12,
+  coverTitle: 36, coverSub: 16, coverMeta: 14, kicker: 12,
+  pageTitle: 25, pageSub: 16, conclusion: 18, banner: 18,
+  sectionNum: 96, sectionTitle: 30, sectionNote: 16,
+  body: 17, small: 16, caption: 13, footer: 9.5,
+  statValue: 36, statLabel: 16, statNote: 14,
+  cardTitle: 17, cardBody: 16, tableBody: 15.5, ref: 13,
 };
 
 // ---------- 主题 ----------
@@ -73,8 +74,8 @@ const THEMES = {
     line: "EADFD6", wash: "FAF7F4", washBorder: "F0E2D9", tint: "F7E7DE",
     onDark: "2B2823", onDarkSub: "2B2823",
   },
-  pku: { // 北大红·燕园金 —— 北京大学官方模版配色(北大红 9A0001 / 燕园金 CEAB6E)
-    primary: "9A0001", accent: "BE2A2E", warm: "CEAB6E",
+  pku: { // 北大红·燕园金 —— 北京大学配色(北大红 94070A / 燕园金 CEAB6E)
+    primary: "94070A", accent: "BE2A2E", warm: "CEAB6E",
     ink: "2A2422", muted: "797069", faint: "A79E97",
     line: "E7DAD8", wash: "FBF5F4", washBorder: "F0E1DF", tint: "F4E4E3",
     onDark: "FFFFFF", onDarkSub: "E6BEB4",
@@ -112,11 +113,116 @@ const LANG = {
         ack: "Acknowledgements", ackPeople: "Supervision & Collaboration",
         ackSupport: "Funding & Facilities", org: "Affiliation" },
 };
+// 条目完成状态与图的证据类型:页面上渲染成固定措辞的标签,不让作者每次自己措辞
+LANG.zh.status = { done: "已实现", prelim: "初步测试", planned: "拟开展" };
+LANG.en.status = { done: "Done", prelim: "Preliminary", planned: "Planned" };
+LANG.zh.evidence = { measured: "实测", screenshot: "截图", photo: "实拍", literature: "文献",
+                     simulated: "模拟", schematic: "示意" };
+LANG.en.evidence = { measured: "Measured", screenshot: "Screenshot", photo: "Photo", literature: "Literature",
+                     simulated: "Simulated", schematic: "Schematic" };
+LANG.zh.tag = (s) => `【${s}】`;
+LANG.en.tag = (s) => `[${s}] `;
+
+// ---------- 内容审计:把"去 AI 味"里查得出的几条做成构建期检查 ----------
+// 页标题只点明主题。中文按字计,拉丁字符按半字计。
+const TITLE_MAX = 18;
+function titleUnits(t) {
+  let n = 0;
+  for (const ch of plainText(t).replace(/\s+/g, "")) n += CJK_RE.test(ch) ? 1 : 0.5;
+  return n;
+}
+// 算作"真实素材"的证据类型(实景照片另由 credits.json 计)
+const REAL_EVIDENCE = new Set(["measured", "screenshot", "photo"]);
+// 标题、正文、底部总结说同一件事,最常见的形态就是贴着这些标签的提示框
+const SUMMARY_LABEL = /^(本页)?(小结|总结|结论|要点|启示|核心观点|一句话|summary|takeaway|key\s*points?|bottom\s*line)/i;
+// 讲没讲困难:在标题、章节名、导语、卡片名、提示框标签里找
+const LIMIT_RE = /局限|困难|不足|限制|瓶颈|风险|失败|未解决|待解决|limitation|challenge|difficult|failure|risk|open\s+problem/i;
+function walkBlocks(blocks, fn) {
+  for (const b of blocks || []) {
+    fn(b);
+    if (b.type === "cols") for (const c of b.cols || []) walkBlocks(c.blocks, fn);
+  }
+}
+function blockText(b) {
+  const items = b.items || [];
+  switch (b.type) {
+    case "text": return String(b.text || "");
+    case "bullets": return items.map(it => `${it.lead || ""}${it.text || ""}`).join(" ");
+    case "cards": return items.map(it => `${it.title || ""}${it.text || ""}`).join(" ");
+    case "stats": return items.map(it => `${it.label || ""}${it.note || ""}`).join(" ");
+    case "figure": case "chart": return String(b.caption || "");
+    case "callout": return String(b.text || "");
+    default: return "";
+  }
+}
+// a 的相邻二字组有多大比例出现在 b 里;a 太短时不判,几个字的重合不算重复
+function overlapRatio(a, b) {
+  const grams = (s) => {
+    const t = String(s).toLowerCase().replace(/[^\p{Script=Han}a-z0-9]/gu, "");
+    const g = new Set();
+    for (let i = 0; i < t.length - 1; i++) g.add(t.slice(i, i + 2));
+    return g;
+  };
+  const A = grams(a);
+  if (A.size < 8) return 0;
+  const B = grams(b);
+  let hit = 0;
+  for (const x of A) if (B.has(x)) hit++;
+  return hit / A.size;
+}
+// ---------- 行内标记 ----------
+// **关键数据** → 主色加粗;^{…} → 真上标;_{…} → 真下标(²⁹Si 写 ^{29}Si,δ_cal 写 δ_{cal})。
+// 测量宽度时先去掉标记符号,否则换行估算会偏宽。
+function inlineMarks(text) {
+  const s = String(text), out = [];
+  let hl = false, buf = "", i = 0;
+  const flush = () => { if (buf) { out.push({ t: buf, hl }); buf = ""; } };
+  while (i < s.length) {
+    if (s[i] === "*" && s[i + 1] === "*") { flush(); hl = !hl; i += 2; continue; }
+    if (s[i] === "^" || s[i] === "_") {
+      const m = /^([\^_])\{([^{}]*)\}/.exec(s.slice(i));
+      if (m) { flush(); out.push({ t: m[2], hl, sup: m[1] === "^", sub: m[1] === "_" }); i += m[0].length; continue; }
+    }
+    buf += s[i]; i += 1;
+  }
+  flush();
+  return out;
+}
+function plainText(text) {
+  return String(text).replace(/\*\*/g, "").replace(/[\^_]\{([^{}]*)\}/g, "$1");
+}
+
+// 没用真上下标的写法:同位素、R2、Qn、δ_cal、CO2 之类。Unicode 上标(²⁹Si、R²)与 ^{…}/_{…} 都算真上下标
+const FAKE_SCRIPT_RE = [
+  /(?<![\w{^])(?:7Li|11B|13C|15N|17O|19F|23Na|27Al|29Si|31P|33S|195Pt)(?![\w}])/g,
+  /(?<![\w{^])1H(?=\s*(?:NMR|谱|核磁))/g,
+  /(?<![\w{^])R2(?![\w}])/g,
+  /(?<![\w{^])Q[0-4](?![\w}])/g,
+  /[A-Za-zδΔσλμνρτθφψωαβγε]_(?!\{)[A-Za-z0-9]+/g,
+  /[A-Za-z0-9)\]]\^(?!\{)[0-9A-Za-z+\-−]+/g,
+  /(?<![\w{])(?:H2SO4|Na2SO4|Li2CO3|CaCO3|Al2O3|Fe2O3|Fe3O4|H2O2|SiO2|TiO2|MoS2|Li2S|LiPF6|CO2|H2O|NO2|SO2|NH3|CH4|O2|N2|H2)(?![\w}])/g,
+];
+function fakeScripts(strings) {
+  const hits = new Set();
+  for (const str of strings) for (const re of FAKE_SCRIPT_RE) for (const m of String(str).matchAll(re)) hits.add(m[0]);
+  return [...hits];
+}
+// 一页上所有会被读到的文字(不含 credit/source 这类著录,里面常有文件名与 DOI)
+function pageStrings(a) {
+  const out = [a.title, a.sub, a.conclusion, a.banner];
+  walkBlocks(a.blocks, (b) => {
+    if (b.type === "algorithm" || b.type === "formula") return;
+    if (b.type === "table") { out.push(...(b.header || []), ...(b.rows || []).flat()); return; }
+    out.push(blockText(b), b.label);
+    for (const it of b.items || []) out.push(it.value, it.title, it.label, it.text);
+  });
+  return out.filter(v => v !== undefined && v !== null && v !== false).map(String);
+}
 
 // 场合档位:决定封面变体与结束页主文字。答辩要"恳请指正",组会/文献汇报
 // 用同一句就假了——那是评审场合的话术。
 const KINDS = {
-  defense:     { cover: "split", closing: { zh: "恳请各位专家批评指正", en: "Questions & Comments" } },
+  defense:     { cover: "split", closing: { zh: "敬请各位老师批评指正", en: "Questions & Comments" } },
   grant:       { cover: "split", closing: { zh: "恳请各位专家批评指正", en: "Questions & Comments" } },
   groupmeeting:{ cover: "plate", closing: { zh: "讨论与提问", en: "Discussion" } },
   paperreading:{ cover: "plate", closing: { zh: "讨论与提问", en: "Discussion" } },
@@ -147,14 +253,15 @@ function chW(ch) {
 }
 function estW(text, size) {
   let em = 0;
-  for (const ch of String(text)) em += chW(ch);
+  for (const ch of plainText(text)) em += chW(ch);
   return (em * size) / 72;
 }
 // 贪心换行:CJK 逐字可断,拉丁按词断
 function wrapCount(text, size, w) {
   let lines = 1;
-  for (const hard of String(text).split("\n")) {
-    if (hard !== String(text).split("\n")[0]) lines++;
+  const src = plainText(text);
+  for (const hard of src.split("\n")) {
+    if (hard !== src.split("\n")[0]) lines++;
     const tokens = [];
     let latin = "";
     for (const ch of hard) {
@@ -208,14 +315,24 @@ class Deck {
     this.coverMark = _img(opts.coverMark);
     this.coverMarkH = opts.coverMarkH || 1.45;   // 高度(in),等比缩放
     this.brand = this._resolveBrand(opts);
+    // 页型变体:classic 为通用版式;品牌主题在 _resolveBrand 里给默认值,作者可逐项覆盖
+    //   header  numbered = 左上主色章节号块 + 黑色页题 + 通栏主色线 + 右上校徽
+    //   section list     = 章节页只留章节列表,当前章高亮
+    //   closing ribbon   = 中部主色带 + 白色校徽 + 主文字
+    this.layout = {
+      header: opts.headerStyle || this.brand.header || "classic",
+      section: opts.sectionStyle || this.brand.section || "classic",
+      closing: opts.closingStyle || this.brand.closing || "classic",
+    };
   }
 
   // 品牌资源(校徽/logo):pku 主题默认引用随 slidekit 打包的 assets/,
-  // 也可用 opts.logo / opts.seal 显式指定(传绝对路径或相对生成脚本的路径),
-  // 传 false 关闭;文件不存在则静默跳过(不影响其它主题)。
-  //   logo  = 印章+校名横排锁定版,置于正文/章节/目录/参考文献页右上角
-  //   seal  = 圆形印章,用于 band 式封面/结束页居中
-  //   style = 'band'(白—红—白三段带 + 居中印章,北大官方封面样式)/ 'plain'(纯色封面)
+  // 也可用 opts.logo / opts.seal / opts.logoWhite / opts.sealWhite 显式指定
+  // (传绝对路径或相对生成脚本的路径),传 false 关闭;文件不存在则静默跳过(不影响其它主题)。
+  //   logo      = 印章+校名横排锁定版,置于内容页右上角、ribbon 封面左上角
+  //   seal      = 圆形印章,用于 band 式封面居中
+  //   sealWhite = 白色印章,用于 ribbon 结束页的红带上
+  // pku 主题在答辩/结题场合默认走北大答辩版式:ribbon 封面、numbered 页眉、list 章节页、ribbon 结束页。
   _resolveBrand(opts) {
     const dir = path.join(__dirname, "assets");
     const isPku = (opts.theme === "pku");
@@ -223,11 +340,16 @@ class Deck {
     const pick = (v, def) => v === false ? null : has(v || def);
     const logo = pick(opts.logo, isPku ? path.join(dir, "pku-logo.png") : null);
     const seal = pick(opts.seal, isPku ? path.join(dir, "pku-seal.png") : null);
+    const logoWhite = pick(opts.logoWhite, isPku ? path.join(dir, "pku-logo-white.png") : null);
+    const sealWhite = pick(opts.sealWhite, isPku ? path.join(dir, "pku-seal-white.png") : null);
     const kind = KINDS[opts.kind] || KINDS.defense;
-    const style = opts.coverStyle || kind.cover;
+    const formal = !opts.kind || opts.kind === "defense" || opts.kind === "grant";
+    const style = opts.coverStyle || (isPku && formal ? "ribbon" : kind.cover);
     // corner 管的是正文/章节/目录各页的右上角标,与封面变体无关。
     // plate 封面自带放大版横排 logo,靠 _coverPlate 不调 _brandCorner 来避免一页两枚校徽。
-    return { logo, seal, style, corner: opts.cornerLogo !== false && !!logo };
+    return { logo, seal, logoWhite, sealWhite, style, corner: opts.cornerLogo !== false && !!logo,
+             header: isPku ? "numbered" : null, section: isPku ? "list" : null,
+             closing: isPku && formal ? "ribbon" : null };
   }
 
   // 正文/章节/目录/参考文献页右上角的横排 logo(印章+校名),等高缩放不变形
@@ -238,15 +360,23 @@ class Deck {
     ctx.slide.addImage({ path: this.brand.logo, x: W - M - w, y: 0.34, w, h });
   }
 
-  // 文本 → pptxgenjs run 数组(自动分配中西文字体)
+  // 文本 → pptxgenjs run 数组:自动分配中西文字体,并解析行内标记
+  //   **关键数据** → 主色加粗(o.hlColor 可改色);^{上标} / _{下标} → 真上下标
   runs(text, o = {}) {
     const arr = [];
+    const { hlColor, ...base } = o;
     const push = (t, extra) => {
-      for (const sg of segs(t)) {
-        arr.push({ text: sg.t, options: Object.assign({
-          fontFace: sg.cjk ? this.fonts.hans : this.fonts.latin,
-          breakLine: false,
-        }, o, extra) });
+      for (const mk of inlineMarks(t)) {
+        const style = {};
+        if (mk.hl) { style.bold = true; style.color = hlColor || this.theme.primary; }
+        if (mk.sup) style.superscript = true;
+        if (mk.sub) style.subscript = true;
+        for (const sg of segs(mk.t)) {
+          arr.push({ text: sg.t, options: Object.assign({
+            fontFace: sg.cjk ? this.fonts.hans : this.fonts.latin,
+            breakLine: false,
+          }, base, extra, style) });
+        }
       }
     };
     if (o.lead) { push(o.lead, { bold: true }); if (o.leadGap !== false) push("  ", {}); }
@@ -284,17 +414,17 @@ class Deck {
 
     // 预扫:页码与所属章节
     const total = this.ops.length;
-    let curSec = null, tocSlideNo = null;
+    let curSec = null, curIdx = 0, tocSlideNo = null;
     this.ops.forEach((op, i) => {
-      if (op.k === "section") curSec = op.a.title;
-      op._sec = curSec; op._no = i + 1;
+      if (op.k === "section") { curSec = op.a.title; curIdx = op.a.idx; }
+      op._sec = curSec; op._secIdx = curIdx; op._no = i + 1;
       if (op.k === "toc") tocSlideNo = i + 1;
       if (op.k === "section") op.a._pageNo = i + 1;
     });
 
     for (const op of this.ops) {
       const s = pres.addSlide();
-      const ctx = { slide: s, no: op._no, total, sec: op._sec };
+      const ctx = { slide: s, no: op._no, total, sec: op._sec, secIdx: op._secIdx };
       if (op.k === "cover") this._cover(ctx, op.a);
       else if (op.k === "toc") this._toc(ctx);
       else if (op.k === "section") this._section(ctx, op.a);
@@ -303,17 +433,19 @@ class Deck {
       else if (op.k === "ack") this._ack(ctx, op.a);
       else if (op.k === "closing") this._closing(ctx, op.a);
     }
-    // 真实照片不是可选项:实景类页面(研究对象、装置、应用场景)配真图是专业度的
-    // 硬门槛。找过确实没有合适的,用 new Deck({ photos: false }) 显式豁免——
-    // 让它成为一个决定,而不是一次遗漏。
+    // 真实素材不是可选项:实测谱图、系统截图、失败案例比概念架构图更有说服力,
+    // 实景照片是补充。计数口径:evidence 标为 measured/screenshot/photo 的图,
+    // 加上 fetchimg 取来的 CC 实景照片。找过确实没有,用 new Deck({ photos: false })
+    // 显式豁免——让它成为一个决定,而不是一次遗漏。
     if (this.meta.photos !== false && this.realPhotos === 0) this.warns.push(
-      `全篇没有真实照片(0 张来自 credits.json 的实景图)——先用 fetchimg.py 按题目取 CC 许可` +
-      `照片配到研究对象/装置/应用场景页(见 SKILL.md 第 1.5 步);` +
-      `确实没有合适图片时传 photos:false 显式豁免`);
+      `全篇没有真实素材(0 张实测图/截图/实拍,也没有 fetchimg 取来的实景照片)——先找课题自己的` +
+      `实测谱图、系统截图、失败案例,标 evidence:"measured"/"screenshot";背景页再用 fetchimg.py 补实景照片` +
+      `(见 SKILL.md 第 1.5 步);确实没有时传 photos:false 显式豁免`);
+    this._auditDeck();
     // pku 主题却找不到品牌素材,说明复制 slidekit.js 时漏了同级的 assets/。
     // SKILL.md 第 2 步早就写了这条,但写着的规则会被跳过——所以做成检查。
     if (this.theme === THEMES.pku) {
-      const miss = ["pku-logo.png", ...Object.values(DECOR)]
+      const miss = ["pku-logo.png", "pku-seal.png", "pku-logo-white.png", "pku-seal-white.png", ...Object.values(DECOR)]
         .filter(f => !fs.existsSync(path.join(__dirname, "assets", f)));
       if (miss.length) this.warns.push(
         `pku 主题缺少品牌素材 ${miss.join("、")}——复制 slidekit.js 时要连同级的 ` +
@@ -329,7 +461,7 @@ class Deck {
         `用 d.acknowledge({advisor, collab, funding, facility}) 补在 refs 之后`);
     }
     const cl = this.ops.find(o => o.k === "closing");
-    if (cl && !cl.a.takeaway) this.warns.push(
+    if (cl && !cl.a.takeaway && this.layout.closing !== "ribbon") this.warns.push(
       `结束页没有 takeaway——Q&A 全程停在这一页,只写一句客套话等于浪费它;` +
       `传 closing({takeaway: "最想被记住的那句结论"})`);
     await pres.writeFile({ fileName });
@@ -355,7 +487,104 @@ class Deck {
       { fontSize: T.footer, color: th.faint }), {
       x: W - M - 1.2, y: FOOTER_Y, w: 1.2, h: 0.3, align: "right", margin: 0, valign: "middle" });
   }
+  // 页标题只点明主题("谱峰拟合方法""原型测试与后续验证"),结论写进页题下的结论条。
+  // 长到换行、带逗号句号,多半是把结论句或口号搬上了标题。
+  _checkTitle(ctx, title, lines) {
+    const t = String(title || "");
+    const why = [];
+    if (this.lang === "en") {
+      const words = t.trim().split(/\s+/).filter(Boolean).length;
+      if (words > 8) why.push(`${words} 个词`);
+      if (/[.;!?]\s*$/.test(t.trim())) why.push("以句号结尾");
+    } else {
+      const u = titleUnits(t);
+      if (u > TITLE_MAX) why.push(`约 ${Math.round(u)} 字`);
+      if (/[，。；！？]|[,;](?=\s*\p{Script=Han})/u.test(t)) why.push("带逗号或句号");
+    }
+    if (lines > 1) why.push(`${lines} 行`);
+    if (why.length) this.warns.push(
+      `页 ${ctx.no} 标题「${t.replace(/\n/g, "")}」${why.join("、")}——标题只点明主题` +
+      `(如"原型测试与后续验证"),结论写进页题下的结论条 conclusion`);
+  }
+
+  // 条目完成状态【已实现】【初步测试】【拟开展】,图的证据类型【实测】【模拟】【示意】……
+  _statusTag(it, ctx) {
+    if (!it || !it.status) return "";
+    const s = this.L.status[it.status];
+    if (s) return this.L.tag(s);
+    this.warns.push(`页 ${ctx ? ctx.no : "?"} 条目 status "${it.status}" 无效——只接受 done / prelim / planned`);
+    return "";
+  }
+  _evidenceTag(b, ctx) {
+    if (!b || !b.evidence) return "";
+    const s = this.L.evidence[b.evidence];
+    if (s) return this.L.tag(s);
+    this.warns.push(`页 ${ctx ? ctx.no : "?"} 图的 evidence "${b.evidence}" 无效——只接受 ` +
+      Object.keys(this.L.evidence).join(" / "));
+    return "";
+  }
+
+  // numbered 页眉:左上主色章节号块 + 黑色页题 + 通栏主色线 + 右上校徽。返回内容区顶界 y
+  _headerNumbered(ctx, a) {
+    const th = this.theme, s = ctx.slide, R = this.pres.shapes.RECTANGLE;
+    const top = 0.42, bh = 0.62;
+    let tx = M;
+    if (ctx.secIdx && !a.noNumber) {
+      s.addShape(R, { x: M, y: top, w: bh, h: bh, fill: { color: this._fill() }, line: { type: "none" } });
+      s.addText([{ text: String(ctx.secIdx).padStart(2, "0"), options: {
+        fontFace: this.fonts.latin, fontSize: 20, bold: true, color: th.onDark } }],
+        { x: M, y: top, w: bh, h: bh, margin: 0, align: "center", valign: "middle" });
+      tx = M + bh + 0.24;
+    }
+    let right = W - M;
+    if (this.brand.corner && this.brand.logo) {
+      const d = imgSize(this.brand.logo), lh = 0.42, lw = lh * d.w / d.h;
+      s.addImage({ path: this.brand.logo, x: W - M - lw, y: top + (bh - lh) / 2, w: lw, h: lh });
+      right = W - M - lw - 0.3;
+    }
+    const tSize = a.titleSize || T.pageTitle, tw = right - tx;
+    const lines = wrapCount(a.title, tSize, tw);
+    this._checkTitle(ctx, a.title, lines);
+    const tH = Math.max(bh, (Math.min(lines, 2) * tSize * 1.2) / 72);
+    s.addText(this.runs(a.title, { fontSize: tSize, color: th.ink, bold: true }),
+      { x: tx, y: top, w: tw, h: tH, margin: 0, valign: "middle", lineSpacingMultiple: 1.1 });
+    let y = top + tH + 0.14;
+    s.addShape(R, { x: M, y, w: CW, h: 0.03, fill: { color: this._fill() }, line: { type: "none" } });
+    y += 0.25;
+    if (a.sub) {
+      s.addText(this.runs(a.sub, { fontSize: T.pageSub, color: th.muted }),
+        { x: M, y, w: CW, h: 0.34, margin: 0, valign: "top" });
+      y += 0.44;
+    }
+    return y;
+  }
+
+  // 页题下的结论条:一页一结论,关键数据用 **…** 标主色加粗。左侧一道主色竖线,不填底色
+  _conclusionBar(ctx, text, y) {
+    const th = this.theme, s = ctx.slide;
+    const size = T.conclusion, w = CW - 0.28;
+    const h = textH(text, size, w, 1.34) + 0.08;
+    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: y + 0.04, w: 0.05, h: h - 0.08,
+      fill: { color: this._fill() }, line: { type: "none" } });
+    s.addText(this.runs(text, { fontSize: size, color: th.ink }),
+      { x: M + 0.28, y, w, h, margin: 0, valign: "middle", lineSpacingMultiple: 1.18 });
+    return h;
+  }
+
+  // 页底结论横条(按需):主色底白字。bottom 为横条下沿,返回横条高度
+  _banner(ctx, text, bottom) {
+    const th = this.theme, s = ctx.slide;
+    const size = T.banner, w = CW - 0.6;
+    const h = Math.max(0.64, textH(text, size, w) + 0.26);
+    const y = bottom - h;
+    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y, w: CW, h, fill: { color: this._fill() }, line: { type: "none" } });
+    s.addText(this.runs(text, { fontSize: size, color: th.onDark, bold: true, hlColor: th.onDark }),
+      { x: M + 0.3, y, w, h, margin: 0, align: "center", valign: "middle", lineSpacingMultiple: 1.15 });
+    return h;
+  }
+
   _header(ctx, a) { // 返回内容区顶界 y
+    if (this.layout.header === "numbered") return this._headerNumbered(ctx, a);
     const th = this.theme;
     const kicker = a.kicker || ctx.sec || this.meta.occasion || "";
     let y = 0.5;
@@ -366,7 +595,7 @@ class Deck {
     }
     const tSize = a.titleSize || T.pageTitle;
     const lines = wrapCount(a.title, tSize, CW);
-    if (lines > 2) this.warns.push(`页 ${ctx.no} 标题预计 ${lines} 行,建议精简`);
+    this._checkTitle(ctx, a.title, lines);
     const tH = (Math.min(lines, 3) * tSize * 1.24) / 72;
     ctx.slide.addText(this.runs(a.title, { fontSize: tSize, color: th.primary, bold: true }), {
       x: M, y, w: CW, h: tH + 0.06, margin: 0, valign: "top", lineSpacingMultiple: 1.12 });
@@ -449,6 +678,7 @@ class Deck {
     if (style === "band" && this.brand.seal) return this._coverBand(ctx, a);
     if (style === "plate") return this._coverPlate(ctx, a);
     if (style === "solid") return this._coverSolid(ctx, a);
+    if (style === "ribbon") return this._coverRibbon(ctx, a);
     return this._coverSplit(ctx, a);
   }
 
@@ -639,6 +869,50 @@ class Deck {
     if (a.notes) s.addNotes(a.notes);
   }
 
+  // 变体 ribbon:白底 + 左上校标 + 中部主色带题名 + 底部主色带信息区(汇报人 / 导师 / 单位与日期)。
+  // 题名带随标题行数长高并在空区里垂直居中;信息带固定高度贴底。
+  _coverRibbon(ctx, a) {
+    const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
+    const fill = this._fill();
+    if (this.brand.logo) {
+      const d = imgSize(this.brand.logo), lh = 0.78, lw = lh * d.w / d.h;
+      s.addImage({ path: this.brand.logo, x: M, y: 0.52, w: lw, h: lh });
+    }
+    const tSize = a.titleSize || 38;
+    const t = this._measureTitle(m.title, tSize, CW);
+    if (t.lines >= 4) this.warns.push(`封面标题 ${t.lines} 行(${tSize}pt)——红带放不下,` +
+      `请用 \\n 手动断行、缩短题名,或传 cover({titleSize: 32})`);
+    // _measureTitle 按 1.16 倍字号估行高,中文字体实际渲染约再高三成。题名占位按实际高度算,
+    // 否则副题会压住题名末行(按估值排时实测贴线)
+    const titleH = t.h * 1.35;
+    const occH = m.occasion ? 0.46 : 0, subH = m.subtitle ? 0.58 : 0;
+    const bandH = 0.5 + occH + titleH + subH + 0.45;
+    const infoH = 1.3, infoY = H - infoH;
+    const free0 = 1.62, free1 = infoY - 0.4;
+    const bandY = free0 + Math.max(0, (free1 - free0 - bandH) / 2);
+    s.addShape(R, { x: 0, y: bandY, w: W, h: bandH, fill: { color: fill }, line: { type: "none" } });
+    let y = bandY + 0.5;
+    if (m.occasion) {
+      s.addText(this.runs(m.occasion, { fontSize: 15, color: th.onDarkSub, bold: true, charSpacing: 3 }),
+        { x: M, y, w: CW, h: 0.34, margin: 0, valign: "middle" });
+      y += occH;
+    }
+    s.addText(this.runs(m.title, { fontSize: tSize, color: th.onDark, bold: true }),
+      { x: M, y, w: CW, h: titleH + 0.1, margin: 0, valign: "top", lineSpacingMultiple: 1.16 });
+    y += titleH;
+    if (m.subtitle) s.addText(this.runs(m.subtitle, { fontSize: 18, color: th.onDarkSub }),
+      { x: M, y: y + 0.2, w: CW, h: 0.38, margin: 0, valign: "middle" });
+    s.addShape(R, { x: 0, y: infoY, w: W, h: infoH, fill: { color: fill }, line: { type: "none" } });
+    const colW = 3.2, iy = infoY + 0.33;
+    this._infoRows(ctx, { x: M, y: iy, w: colW, onDark: true, rows: [[this.L.presenter, m.presenter]] });
+    this._infoRows(ctx, { x: M + colW + 0.3, y: iy, w: colW, onDark: true, rows: [[this.L.advisor, m.advisor]] });
+    const tail = [m.org, m.date].filter(Boolean).join("  ·  ");
+    const rx = M + 2 * (colW + 0.3);
+    if (tail) this._infoRows(ctx, { x: rx, y: iy, w: W - M - rx, align: "right", onDark: true,
+      rows: [[m.org ? this.L.org : "日期", tail]] });
+    if (a.notes) s.addNotes(a.notes);
+  }
+
   // ---------- 目录 ----------
   _toc(ctx) {
     const th = this.theme, s = ctx.slide;
@@ -654,9 +928,9 @@ class Deck {
       const num = String(i + 1).padStart(2, "0");
       s.addText([{ text: num, options: { fontFace: this.fonts.latin, fontSize: 22, color: th.accent, bold: true } }], {
         x: M + 0.05, y, w: 0.75, h: 0.5, margin: 0, valign: "middle" });
-      s.addText(this.runs(sec.title, { fontSize: 17, color: th.ink, bold: true }), {
+      s.addText(this.runs(sec.title, { fontSize: 20, color: th.ink, bold: true }), {
         x: M + 0.95, y, w: 7.6, h: 0.5, margin: 0, valign: "middle" });
-      if (sec.note) s.addText(this.runs(sec.note, { fontSize: 12.5, color: th.muted }), {
+      if (sec.note) s.addText(this.runs(sec.note, { fontSize: 14, color: th.muted }), {
         x: M + 8.7, y, w: CW - 8.7, h: 0.5, margin: 0, valign: "middle" });
       if (i < n - 1) s.addShape(this.pres.shapes.RECTANGLE, {
         x: M + 0.95, y: y + rowH - 0.09, w: CW - 0.95, h: 0.008, fill: { color: th.line }, line: { type: "none" } });
@@ -666,7 +940,30 @@ class Deck {
   }
 
   // ---------- 章节过渡页 ----------
+  // list 变体:只留章节列表,当前章用主色章节号块 + 主色大字高亮,其余章灰色;
+  // 不放章节说明、要点预览、页脚等灰色小字
+  _sectionList(ctx, a) {
+    const th = this.theme, s = ctx.slide, R = this.pres.shapes.RECTANGLE;
+    this._brandCorner(ctx);
+    const n = this.sections.length;
+    const rowH = Math.min(0.95, 5.2 / Math.max(n, 1)), bw = 0.62, x0 = 2.3;
+    let y = (H - n * rowH) / 2;
+    this.sections.forEach((sec, i) => {
+      const cur = i + 1 === a.idx;
+      const by = y + (rowH - bw) / 2;
+      if (cur) s.addShape(R, { x: x0, y: by, w: bw, h: bw, fill: { color: this._fill() }, line: { type: "none" } });
+      s.addText([{ text: String(i + 1).padStart(2, "0"), options: { fontFace: this.fonts.latin,
+        fontSize: cur ? 22 : 20, bold: true, color: cur ? th.onDark : th.faint } }],
+        { x: x0, y: by, w: bw, h: bw, margin: 0, align: "center", valign: "middle" });
+      s.addText(this.runs(sec.title, { fontSize: cur ? 28 : 20, bold: cur, color: cur ? th.primary : th.muted }),
+        { x: x0 + bw + 0.4, y, w: W - M - (x0 + bw + 0.4), h: rowH, margin: 0, valign: "middle" });
+      y += rowH;
+    });
+    if (a.notes) s.addNotes(a.notes);
+  }
+
   _section(ctx, a) {
+    if (this.layout.section === "list") return this._sectionList(ctx, a);
     const th = this.theme, s = ctx.slide;
     // 章节页右上角铺蜂窝(Li-S 那份的章节页手法)。它落在超大章节号与
     // 右上角标之间的空区,不与任何文字相交。
@@ -714,13 +1011,106 @@ class Deck {
     if (a.notes) s.addNotes(a.notes);
   }
 
+  // ---------- 内容审计 ----------
+  // 单页:结论条写没写数据、底部横条与结论条是否重复、提示框是否复述正文、有没有假上下标
+  _auditPage(ctx, a) {
+    const callouts = [], rest = [a.title || "", a.sub || "", a.conclusion || "", a.banner || ""];
+    walkBlocks(a.blocks, (b) => {
+      if (b.type === "callout") callouts.push(b);
+      else rest.push(blockText(b));
+    });
+    const body = rest.join(" ");
+    for (const c of callouts) {
+      if (c.tone === "warn") continue;              // 声明"数值为目标"的提示框不算总结
+      const dup = overlapRatio(c.text, body);
+      const isSummary = !!c.label && SUMMARY_LABEL.test(String(c.label).trim());
+      if (dup < 0.5 && !isSummary) continue;
+      this.warns.push(`页 ${ctx.no} 的「${c.label || "提示框"}」` +
+        (dup >= 0.5 ? `与标题/结论条/正文重复约 ${Math.round(dup * 100)}%` : "是总结框") +
+        `——同一句话只说一次:删掉它,或只把正文里没有的那句并进正文`);
+    }
+    if (a.conclusion) {
+      const c = String(a.conclusion);
+      if (!/\d/.test(plainText(c))) this.warns.push(
+        `页 ${ctx.no} 结论条没有数字——写具体事实和数据(如"残差中位数从 **7.4%** 降到 **3.1%**"),不写口号`);
+      else if (!c.includes("**")) this.warns.push(
+        `页 ${ctx.no} 结论条的关键数据没有标出——用 **…** 包起来,渲染为主色加粗`);
+      if (wrapCount(c, T.conclusion, CW - 0.28) > 2) this.warns.push(
+        `页 ${ctx.no} 结论条超过两行——一页一结论,只留最关键的一句`);
+    }
+    if (a.banner && a.conclusion && overlapRatio(a.banner, a.conclusion) >= 0.5) this.warns.push(
+      `页 ${ctx.no} 底部横条与结论条重复——横条按需使用,说的应当是结论条之外的一句,否则删掉`);
+    const fake = fakeScripts(pageStrings(a));
+    if (fake.length) this.warns.push(
+      `页 ${ctx.no} 疑似没用真上下标:${fake.join("、")}——写成 ^{29}Si、R^{2}、Q^{n}、δ_{cal}、CO_{2}` +
+      `(slidekit 渲染为真上下标),或直接用 Unicode ²⁹Si、R²`);
+  }
+
+  // 全篇结构审计:这几条单页看不出来,摊开全篇才看得见
+  _auditDeck() {
+    const pages = this.ops.filter(o => o.k === "page");
+    const cardPages = [], unlabeled = [], noFig = [], noConcl = [], bannerPages = [];
+    let bulletBlocks = 0, threeItems = 0;
+    for (const op of pages) {
+      let hasCards = false, hasFig = false;
+      walkBlocks(op.a.blocks, (b) => {
+        if (b.type === "cards") hasCards = true;
+        if (b.type === "figure" || b.type === "chart") hasFig = true;
+        if (b.type === "bullets") { bulletBlocks++; if ((b.items || []).length === 3) threeItems++; }
+        const ownFigure = b.type === "figure" && !registryHit(b.path);   // fetchimg/aiimg 的图由署名行交代来源
+        if ((ownFigure || b.type === "chart") && !b.evidence) unlabeled.push(op._no);
+      });
+      if (hasCards) cardPages.push(op._no);
+      if (!hasFig && !op.a.noFigure) noFig.push(op._no);
+      if (op.a.conclusion === undefined) noConcl.push(op._no);
+      if (op.a.banner) bannerPages.push(op._no);
+    }
+    const uniq = (xs) => [...new Set(xs)].join("、");
+    if (cardPages.length) this.warns.push(
+      `页 ${uniq(cardPages)} 用了卡片——全文不用卡片、胶囊和圆角框:比较改三线表,并列要点改 bullets,过程改流程图`);
+    if (bulletBlocks >= 4 && threeItems / bulletBlocks >= 0.75) this.warns.push(
+      `${bulletBlocks} 组要点里有 ${threeItems} 组恰好 3 条——条数由内容定,为凑三条硬造的那一条删掉`);
+    if (unlabeled.length) this.warns.push(
+      `页 ${uniq(unlabeled)} 的图/图表没标 evidence——实测、模拟、示意要在图注里分清:` +
+      `evidence: "measured" | "screenshot" | "photo" | "literature" | "simulated" | "schematic"`);
+    if (noFig.length) this.warns.push(
+      `页 ${uniq(noFig)} 没有图——汇报要图文并茂:自绘的示意图、流程图走 paper-figures skill;` +
+      `没有合适的就检索文献,把原图插进来,figure 块写 evidence:"literature" 并在 credit 里注明引用来源;` +
+      `确实不需要图的页传 noFigure:true`);
+    if (noConcl.length) this.warns.push(
+      `页 ${uniq(noConcl)} 没有结论条——一页一结论:d.page({ conclusion: "……**关键数据**……" });` +
+      `这页确实没有结论(如研究计划、目录式页面)传 conclusion:false`);
+    const banLimit = Math.max(2, Math.ceil(pages.length / 4));
+    if (bannerPages.length > banLimit) this.warns.push(
+      `${bannerPages.length} 页用了底部结论横条(页 ${uniq(bannerPages)},建议 ≤ ${banLimit})——横条按需使用,` +
+      `多数页有页题下的结论条就够了`);
+    if (this.kind === "defense" || this.kind === "grant") {
+      const hay = [];
+      for (const o of this.ops) {
+        if (o.k === "section") hay.push(o.a.title || "", o.a.note || "");
+        if (o.k !== "page") continue;
+        hay.push(o.a.title || "");
+        walkBlocks(o.a.blocks, (b) => {
+          if (b.type === "callout") hay.push(b.label || "");
+          for (const it of b.items || []) hay.push(it.lead || "", it.title || "", it.label || "");
+        });
+      }
+      if (!LIMIT_RE.test(hay.join(" "))) this.warns.push(
+        `全篇没有讲困难或局限——每个研究部分按"问题—方法—结果—困难"展开;` +
+        `单列一页"局限与下一步",写清哪一步没做通、原因和打算怎么试`);
+    }
+  }
+
   // ---------- 内容页 ----------
   _page(ctx, a) {
     const s = ctx.slide;
-    this._brandCorner(ctx);
-    const top = this._header(ctx, a);
+    if (this.layout.header !== "numbered") this._brandCorner(ctx);   // numbered 页眉自己画校徽
+    this._auditPage(ctx, a);
+    let top = this._header(ctx, a);
+    if (a.conclusion) top += this._conclusionBar(ctx, a.conclusion, top) + 0.22;
     const srcH = this._sourceLine(ctx, a.source);
-    const box = { x: M, y: top, w: CW, h: CONTENT_BOTTOM - srcH - top };
+    const banH = a.banner ? this._banner(ctx, a.banner, CONTENT_BOTTOM - srcH) + 0.22 : 0;
+    const box = { x: M, y: top, w: CW, h: CONTENT_BOTTOM - srcH - banH - top };
     this._renderBlocks(ctx, a.blocks || [], box, 1, true);
     this._footer(ctx);
     if (a.notes) s.addNotes(a.notes);
@@ -745,7 +1135,7 @@ class Deck {
     const list = (Array.isArray(source) ? source : [source]).filter(Boolean);
     if (!list.length) return 0;
     const text = list.join(this.lang === "zh" ? "；" : "; ");
-    const size = 12;
+    const size = 13;
     const lines = wrapCount(text, size, CW);
     // 不截断:静默丢掉一条文献是署名缺失,不是排版问题。让它变丑并报警,
     // 与块布局"降字仍溢出就警告、绝不裁内容"是同一条纪律。
@@ -766,16 +1156,21 @@ class Deck {
   _renderBlocks(ctx, blocks, box, fontScale = 1, top = false) {
     const measured = blocks.map(b => this._measure(ctx, b, box.w, fontScale));
     const totalH = measured.reduce((t, m) => t + m.h, 0) + GAP * Math.max(blocks.length - 1, 0);
-    if (top && box.h > 1.5) {
+    if (top === true && box.h > 1.5) {
       const fill = totalH / box.h;
       if (fill < FILL_MIN) this.warns.push(
         `页 ${ctx.no} 填充率 ${(fill * 100).toFixed(0)}%(建议 ≥ ${(FILL_MIN * 100).toFixed(0)}%)——内容偏少,` +
-        `考虑:补一张小图/图表、把要点拆成"论断+证据"两层、加一句"本页要回答的问题"、或与相邻页合并`);
+        `考虑:补一张真实素材(实测图、截图、数据表)或与相邻页合并;不要为了填版面加句子。` +
+        `这页确实只有一个点就保留,并在交付说明里写明理由`);
     }
     if (totalH > box.h + 0.02 && fontScale > 0.85) {
-      return this._renderBlocks(ctx, blocks, box, fontScale - 0.06);
+      return this._renderBlocks(ctx, blocks, box, fontScale - 0.06, top ? "retry" : false);
     }
     if (totalH > box.h + 0.02) this.warns.push(`页 ${ctx.no} 内容超高 ${(totalH - box.h).toFixed(2)}in,已降字仍溢出`);
+    // 放不下时先删字,再缩字号。引擎照旧自动降字号保证不溢出,但要让作者知道发生了
+    else if (top && fontScale < 0.999) this.warns.push(
+      `页 ${ctx.no} 内容放不下,已自动把字号降到 ×${fontScale.toFixed(2)}——先删字再缩字号:` +
+      `页面只留关键依据,完整论述放进口头与备注`);
     let y = box.y + Math.min(0.18, Math.max(0, (box.h - totalH) / 2) * 0.4);
     blocks.forEach((b, i) => {
       this._draw(ctx, b, { x: box.x, y, w: box.w, h: measured[i].h }, fontScale, measured[i]);
@@ -792,19 +1187,21 @@ class Deck {
       let h = 0;
       for (const it of b.items) {
         const size = this._fs(b.size || T.body, sc);
-        const full = (it.lead ? it.lead + "  " : "") + it.text;
+        const lead = this._statusTag(it, ctx) + (it.lead || "");
+        const full = (lead ? lead + "  " : "") + it.text;
         h += textH(full, size, w - 0.3) + (b.gap != null ? b.gap : 0.16);
       }
       return { h };
     }
-    if (t === "stats") return { h: 1.45 * sc };
+    if (t === "stats") return { h: 1.62 * sc };
     if (t === "cards") {
       const cols = b.cols || Math.min(b.items.length, 3);
       const cw = (w - 0.32 * (cols - 1)) / cols;
       let maxH = 0;
       for (const it of b.items) {
         let h = 0.34; // 内边距
-        if (it.title) h += textH(it.title, this._fs(T.cardTitle, sc), cw - 0.4) + 0.08;
+        const title = this._statusTag(it, ctx) + (it.title || "");
+        if (title) h += textH(title, this._fs(T.cardTitle, sc), cw - 0.4) + 0.08;
         if (it.text) h += textH(it.text, this._fs(T.cardBody, sc), cw - 0.4);
         maxH = Math.max(maxH, h + 0.18);
       }
@@ -814,8 +1211,9 @@ class Deck {
     if (t === "figure") {
       const dim = imgSize(b.path);
       const credit = figureCredit(b);
-      const capLine = b.caption || credit ? true : false;
-      const capH = capLine ? textH((b.caption || "") + (credit || ""), T.caption, w) + 0.12 : 0;
+      const tag = this._evidenceTag(b, ctx);
+      const capLine = !!(b.caption || credit || tag);
+      const capH = capLine ? textH(tag + (b.caption || "") + (credit || ""), T.caption, w) + 0.12 : 0;
       const maxH = (b.maxH || 4.6) * sc;
       const fit = fitRect(dim.w, dim.h, b.maxW || w, maxH - capH);
       return { h: fit.h + capH + 0.06, fit, capH, credit };
@@ -831,15 +1229,15 @@ class Deck {
       const cw = (w - 0.3 * (cols - 1)) / cols;
       for (const it of b.items) {
         let h = 0.78;
-        if (it.title) h += textH(it.title, this._fs(14, sc), cw) + 0.05;
-        if (it.text) h += textH(it.text, this._fs(12, sc), cw);
+        if (it.title) h += textH(it.title, this._fs(16, sc), cw) + 0.05;
+        if (it.text) h += textH(it.text, this._fs(15, sc), cw);
         maxText = Math.max(maxText, h);
       }
       return { h: maxText + 0.1, cw };
     }
     if (t === "callout") {
       const size = this._fs(b.size || T.small, sc);
-      return { h: Math.max(textH(b.text, size, w - (b.label ? 1.7 : 0.6)) + 0.3, 0.62) };
+      return { h: Math.max(textH(b.text, size, w - (b.label ? 2.0 : 0.6)) + 0.3, 0.66) };
     }
     if (t === "cols") {
       const ratio = b.ratio || b.cols.map(() => 1);
@@ -855,7 +1253,7 @@ class Deck {
       return { h: maxH, ratio, sum, gaps };
     }
     if (t === "chart") {
-      const capH = b.caption ? textH(b.caption, T.caption, w) + 0.12 : 0;
+      const capH = b.caption ? textH(this._evidenceTag(b, ctx) + b.caption, T.caption, w) + 0.12 : 0;
       return { h: (b.height || 3.4) * sc + capH, capH };
     }
     if (t === "formula") {
@@ -871,7 +1269,7 @@ class Deck {
       return { h: hh, eqW, eqH: h2 };
     }
     if (t === "algorithm") {
-      const sz = this._fs(b.size || 12.5, sc);
+      const sz = this._fs(b.size || 15, sc);
       let h = 0.34;                                                // 标题行
       for (const ln of b.lines) h += textH(ln.replace(/^\s+/, ""), sz, w - 0.9) + 0.055;
       return { h: h + 0.12 };
@@ -883,6 +1281,9 @@ class Deck {
   _draw(ctx, b, box, sc, mz) {
     const th = this.theme, s = ctx.slide, t = b.type;
     if (t === "text") {
+      const nChars = [...String(b.text || "")].length;
+      if (b.bold && nChars > 30) this.warns.push(
+        `页 ${ctx.no} 整段加粗(${nChars} 字)——粗体只给导语和数值,整段加粗等于没有强调`);
       s.addText(this.runs(b.text, {
         fontSize: this._fs(b.size || T.body, sc), color: b.color || th.ink,
         bold: b.bold || false, lead: b.lead,
@@ -892,9 +1293,10 @@ class Deck {
       let y = box.y;
       const size = this._fs(b.size || T.body, sc);
       b.items.forEach((it, i) => {
-        const full = (it.lead ? it.lead + "  " : "") + it.text;
+        const lead = this._statusTag(it, ctx) + (it.lead || "");
+        const full = (lead ? lead + "  " : "") + it.text;
         const h = textH(full, size, box.w - 0.02);
-        s.addText(this.runs(it.text, { fontSize: size, color: th.ink, lead: it.lead }), {
+        s.addText(this.runs(it.text, { fontSize: size, color: th.ink, lead: lead || undefined }), {
           x: box.x, y: y - 0.02, w: box.w, h: h + 0.06, margin: 0,
           valign: "top", lineSpacingMultiple: 1.26 });
         y += h + (b.gap != null ? b.gap : 0.16);
@@ -916,9 +1318,13 @@ class Deck {
         s.addText(this.runs(it.value, { fontSize: this._fs(T.statValue, sc), color: th.primary, bold: true }), {
           x, y: box.y + 0.16, w: cw, h: 0.66, margin: 0, align: "left", valign: "middle" });
         s.addText(this.runs(it.label, { fontSize: this._fs(T.statLabel, sc), color: th.ink, bold: true }), {
-          x, y: box.y + 0.86, w: cw, h: 0.3, margin: 0, align: "left" });
-        if (it.note) s.addText(this.runs(it.note, { fontSize: this._fs(T.statNote, sc), color: th.muted }), {
-          x, y: box.y + 1.14, w: cw, h: 0.28, margin: 0, align: "left" });
+          x, y: box.y + 0.86, w: cw, h: 0.34, margin: 0, align: "left" });
+        // 数值要交代条件:测试条件、样本量或适用范围写进 note
+        if (!it.note) this.warns.push(`页 ${ctx.no} 大数字「${it.value}」没写 note——` +
+          `补上测试条件、样本量或适用范围(如 "n = 12,25 °C")`);
+        const note = this._statusTag(it, ctx) + (it.note || "");
+        if (note) s.addText(this.runs(note, { fontSize: this._fs(T.statNote, sc), color: th.muted }), {
+          x, y: box.y + 1.24, w: cw, h: 0.34, margin: 0, align: "left" });
       });
     } else if (t === "cards") {
       const { cardH, cols, cw } = mz;
@@ -929,10 +1335,11 @@ class Deck {
         s.addShape(this.pres.shapes.RECTANGLE, { x, y, w: cw, h: 0.02,
           fill: { color: th.line }, line: { type: "none" } });
         let yy = y + 0.16;
-        if (it.title) {
+        const title = this._statusTag(it, ctx) + (it.title || "");
+        if (title) {
           const tSz = this._fs(T.cardTitle, sc);
-          const tH2 = textH(it.title, tSz, cw);
-          s.addText(this.runs(it.title, { fontSize: tSz, color: th.primary, bold: true }), {
+          const tH2 = textH(title, tSz, cw);
+          s.addText(this.runs(title, { fontSize: tSz, color: th.primary, bold: true }), {
             x, y: yy - 0.04, w: cw, h: tH2 + 0.06, margin: 0 });
           yy += tH2 + 0.08;
         }
@@ -947,14 +1354,17 @@ class Deck {
         x: x - 0.035, y: box.y - 0.035, w: fit.w + 0.07, h: fit.h + 0.07,
         fill: { type: "none" }, line: { color: th.line, width: 0.75 } });
       s.addImage({ path: b.path, x, y: box.y, w: fit.w, h: fit.h });
-      if (fromRegistry(b.path)) this.realPhotos += 1;   // 用于 build 时的实景图检查
-      if (b.caption || credit) {
+      if (fromRegistry(b.path) || REAL_EVIDENCE.has(b.evidence)) this.realPhotos += 1;   // build 时的真实素材检查
+      const tag = this._evidenceTag(b, ctx);   // 【实测】【模拟】【示意】……:图注里分清证据类型
+      if (b.evidence === "literature" && !credit) this.warns.push(
+        `页 ${ctx.no} 的文献图没写 credit——图下方必须注明引用来源(作者, 期刊 年份, 卷, 页, 图号)`);
+      if (b.caption || credit || tag) {
         let cap;
         if (b.caption) {
           this.figN += 1;
-          cap = `${this.L.fig} ${this.figN}  ${b.caption}` + (credit ? `(${credit})` : "");
+          cap = `${this.L.fig} ${this.figN}  ${tag}${b.caption}` + (credit ? `(${credit})` : "");
         } else {
-          cap = credit; // 无图注的网络实景图:仍必须落署名行
+          cap = [tag, credit].filter(Boolean).join(" "); // 无图注的网络实景图:仍必须落署名行
         }
         s.addText(this.runs(cap, { fontSize: T.caption, color: th.muted }), {
           x: box.x, y: box.y + fit.h + 0.1, w: box.w, h: capH, margin: 0, align: "center" });
@@ -994,11 +1404,11 @@ class Deck {
           x: x + cw / 2 - 0.24, y: cy - 0.24, w: 0.48, h: 0.48, align: "center", valign: "middle", margin: 0 });
         let yy = cy + 0.42;
         if (it.title) {
-          s.addText(this.runs(it.title, { fontSize: this._fs(14, sc), color: th.primary, bold: true }), {
+          s.addText(this.runs(it.title, { fontSize: this._fs(16, sc), color: th.primary, bold: true }), {
             x, y: yy, w: cw, h: 0.34, margin: 0, align: "center" });
-          yy += textH(it.title, this._fs(14, sc), cw) + 0.06;
+          yy += textH(it.title, this._fs(16, sc), cw) + 0.06;
         }
-        if (it.text) s.addText(this.runs(it.text, { fontSize: this._fs(12, sc), color: th.muted }), {
+        if (it.text) s.addText(this.runs(it.text, { fontSize: this._fs(15, sc), color: th.muted }), {
           x, y: yy, w: cw, h: box.h - (yy - box.y), margin: 0, align: "center", lineSpacingMultiple: 1.2 });
       });
     } else if (t === "callout") {
@@ -1014,8 +1424,8 @@ class Deck {
         h: Math.max(box.h - 0.04, 0.2), fill: { color: rule }, line: { type: "none" } });
       let tx = box.x + 0.22;
       if (b.label) {
-        const lw = estW(b.label, 12) + 0.16;
-        s.addText(this.runs(b.label, { fontSize: 12, color: rule, bold: true, charSpacing: 0.8 }), {
+        const lw = estW(b.label, 14) + 0.16;
+        s.addText(this.runs(b.label, { fontSize: 14, color: rule, bold: true, charSpacing: 0.8 }), {
           x: tx, y: box.y + 0.06, w: lw, h: box.h - 0.12, align: "left", valign: "middle", margin: 0 });
         tx += lw + 0.16;
       }
@@ -1044,8 +1454,8 @@ class Deck {
         // 这些开关不显式传就等于没传(库内是恒等赋值),必须逐个给 true
         showLegend: b.legend !== false && (isPie || b.data.length > 1),
         legendPos: b.legendPos || (isPie ? "r" : "t"),
-        legendFontSize: this._fs(11, sc), legendColor: th.ink,
-        dataLabelFontSize: this._fs(11, sc), dataLabelFontFace: this.fonts.latin,
+        legendFontSize: this._fs(14, sc), legendColor: th.ink,
+        dataLabelFontSize: this._fs(14, sc), dataLabelFontFace: this.fonts.latin,
         // 不传 shadow:图表默认无阴影,传 {type:'none'} 会拼出非法的 <a:noneShdw>
       };
       let opts;
@@ -1063,18 +1473,18 @@ class Deck {
         const horiz = kind === "barh";
         const isLine = kind === "line" || kind === "area";
         opts = { ...common,
-          catAxisLabelColor: th.muted, catAxisLabelFontSize: this._fs(11, sc),
+          catAxisLabelColor: th.muted, catAxisLabelFontSize: this._fs(14, sc),
           catAxisLineShow: true, catAxisLineColor: th.line,
           catAxisMajorTickMark: "none",
-          valAxisLabelColor: th.muted, valAxisLabelFontSize: this._fs(11, sc),
+          valAxisLabelColor: th.muted, valAxisLabelFontSize: this._fs(14, sc),
           valAxisLineShow: false, valAxisMajorTickMark: "none",
           // 值轴默认带 1pt #888888 粗网格线,是"默认图很丑"的头号原因
           valGridLine: b.grid === false ? { style: "none" } : { color: th.line, size: 0.5, style: "solid" },
           catGridLine: { style: "none" },
           valAxisTitle: b.valTitle, showValAxisTitle: !!b.valTitle,
-          valAxisTitleColor: th.muted, valAxisTitleFontSize: this._fs(11, sc),
+          valAxisTitleColor: th.muted, valAxisTitleFontSize: this._fs(14, sc),
           catAxisTitle: b.catTitle, showCatAxisTitle: !!b.catTitle,
-          catAxisTitleColor: th.muted, catAxisTitleFontSize: this._fs(11, sc),
+          catAxisTitleColor: th.muted, catAxisTitleFontSize: this._fs(14, sc),
           dataLabelColor: th.ink,
           dataLabelFormatCode: b.numFmt,   // 如 "0.0" 保留一位小数,默认会四舍五入到整数
         };
@@ -1104,7 +1514,7 @@ class Deck {
       this.hasChart = true;   // 触发 build 后处理:给图表补中文字体
       if (b.caption) {
         this.figN += 1;
-        s.addText(this.runs(`${this.L.fig} ${this.figN}  ${b.caption}`,
+        s.addText(this.runs(`${this.L.fig} ${this.figN}  ${this._evidenceTag(b, ctx)}${b.caption}`,
           { fontSize: T.caption, color: th.muted }), {
           x: box.x, y: box.y + chH + 0.08, w: box.w, h: capH, margin: 0, align: "center" });
       }
@@ -1127,7 +1537,7 @@ class Deck {
       }
     } else if (t === "algorithm") {
       // 伪代码:左侧竖线 + 等宽行号,不画框不填色
-      const sz = this._fs(b.size || 12.5, sc);
+      const sz = this._fs(b.size || 15, sc);
       s.addShape(this.pres.shapes.RECTANGLE, { x: box.x, y: box.y + 0.02, w: 0.026,
         h: Math.max(box.h - 0.06, 0.2), fill: { color: this._fill() }, line: { type: "none" } });
       let y = box.y + 0.02;
@@ -1162,8 +1572,8 @@ class Deck {
   // ---------- 参考文献页 ----------
   _refs(ctx, a) {
     const th = this.theme, s = ctx.slide;
-    this._brandCorner(ctx);
-    const top = this._header(ctx, { title: a.title || this.L.refs, kicker: a.kicker || "" });
+    if (this.layout.header !== "numbered") this._brandCorner(ctx);
+    const top = this._header(ctx, { title: a.title || this.L.refs, kicker: a.kicker || "", noNumber: true });
     const list = a.list;
     const twoCol = list.length > 5;
     const colN = twoCol ? Math.ceil(list.length / 2) : list.length;
@@ -1193,6 +1603,7 @@ class Deck {
   // 另一处重做:这是 Q&A 全程停在幕布上的那一页。写"恳请各位专家批评指正"等于
   // 让观众盯着一句客套话十分钟,takeaway 槽位放最想被记住的那句结论。
   _closing(ctx, a) {
+    if (this.layout.closing === "ribbon") return this._closingRibbon(ctx, a);
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
     this._decor(ctx, "campus", { x: 0, y: 0, w: W, h: H });
     this._brandCorner(ctx);
@@ -1237,6 +1648,34 @@ class Deck {
     if (a.notes) s.addNotes(a.notes);
   }
 
+  // ribbon 结束页:白底 + 中部主色带,带内白色校徽与主文字整组水平居中;带下只留可选的一句与联系方式
+  _closingRibbon(ctx, a) {
+    const th = this.theme, s = ctx.slide, R = this.pres.shapes.RECTANGLE;
+    const main = a.main || KINDS[this.kind].closing[this.lang] || this.L.closingMain;
+    const size = 40, bandH = 2.6, bandY = (H - bandH) / 2 - 0.2;
+    s.addShape(R, { x: 0, y: bandY, w: W, h: bandH, fill: { color: this._fill() }, line: { type: "none" } });
+    const mark = this.brand.sealWhite || this.brand.logoWhite;
+    let mw = 0, mh = 1.7;
+    if (mark) {
+      const d = imgSize(mark);
+      mw = mh * d.w / d.h;
+      if (mw > 4) { mw = 4; mh = mw * d.h / d.w; }
+    }
+    const gap = mark ? 0.55 : 0;
+    const spacing = this.lang === "zh" ? 2 : 0;
+    const tw = Math.min(estW(main, size) + [...plainText(main)].length * spacing / 72 + 0.2, CW - mw - gap);
+    const x0 = (W - (mw + gap + tw)) / 2;
+    if (mark) s.addImage({ path: mark, x: x0, y: bandY + (bandH - mh) / 2, w: mw, h: mh });
+    s.addText(this.runs(main, { fontSize: size, color: th.onDark, bold: true, charSpacing: spacing }),
+      { x: x0 + mw + gap, y: bandY, w: tw, h: bandH, margin: 0, valign: "middle" });
+    if (a.takeaway) s.addText(this.runs(a.takeaway, { fontSize: 20, color: th.ink }),
+      { x: M, y: bandY + bandH + 0.4, w: CW, h: 0.5, margin: 0, align: "center", valign: "middle" });
+    const tail = [a.contact, ...(a.links || []).map(([k, v]) => `${k}:${v}`)].filter(Boolean).join("  ·  ");
+    if (tail) s.addText(this.runs(tail, { fontSize: 14, color: th.muted }),
+      { x: M, y: H - 0.9, w: CW, h: 0.34, margin: 0, align: "center", valign: "middle" });
+    if (a.notes) s.addNotes(a.notes);
+  }
+
   // ---------- 致谢页 ----------
   // 答辩/结题/基金汇报的固定动作。过去只能用 d.page() 硬凑,一凑就写成 bullets 列表、
   // 看着像内容页。此页走内容页骨架(同网格、同页眉页脚),与封面刻意区别开。
@@ -1265,14 +1704,14 @@ class Deck {
         { x, y: 2.06, w: colW, h: 0.3, margin: 0, valign: "middle" });
       let y = 2.52;
       for (const [name, note, strong] of items) {
-        s.addText(this.runs(name, { fontSize: 15, color: th.ink, bold: strong }),
-          { x, y, w: colW, h: 0.3, margin: 0, valign: "middle" });
-        if (note) s.addText(this.runs(note, { fontSize: 12, color: th.muted }),
-          { x, y: y + 0.30, w: colW, h: 0.28, margin: 0, valign: "middle" });
-        y += note ? 0.70 : 0.44;
+        s.addText(this.runs(name, { fontSize: 17, color: th.ink, bold: strong }),
+          { x, y, w: colW, h: 0.34, margin: 0, valign: "middle" });
+        if (note) s.addText(this.runs(note, { fontSize: 14, color: th.muted }),
+          { x, y: y + 0.34, w: colW, h: 0.32, margin: 0, valign: "middle" });
+        y += note ? 0.80 : 0.50;
       }
     });
-    if (a.group) s.addText(this.runs(a.group, { fontSize: 13, color: th.muted }),
+    if (a.group) s.addText(this.runs(a.group, { fontSize: 15, color: th.muted }),
       { x: M, y: 6.16, w: CW, h: 0.32, margin: 0, valign: "middle" });
     s.addShape(R, { x: 0, y: 7.44, w: W, h: 0.06, fill: { color: this._fill() }, line: { type: "none" } });
     this._footer(ctx);
@@ -1345,9 +1784,8 @@ function figureCredit(b) {
   return [who, hit.license, src].filter(Boolean).join(" / ");
 }
 
-// 该图片是否登记在同目录 credits.json 里(即 fetchimg/aiimg 取来的、带许可的图)。
-// 只统计 fetchimg 来源:AI 生成图不算"真实照片"。
-function fromRegistry(imgPath) {
+// 该图片在同目录 credits.json 里的登记项(fetchimg/aiimg 取来的图),没有则为 null
+function registryHit(imgPath) {
   const dir = path.dirname(imgPath);
   if (!creditsCache.has(dir)) {
     let data = null;
@@ -1355,7 +1793,11 @@ function fromRegistry(imgPath) {
     creditsCache.set(dir, data);
   }
   const reg = creditsCache.get(dir);
-  const hit = reg && reg[path.basename(imgPath)];
+  return (reg && reg[path.basename(imgPath)]) || null;
+}
+// 是否是 fetchimg 取来的带许可实景照片:AI 生成图不算"真实素材"
+function fromRegistry(imgPath) {
+  const hit = registryHit(imgPath);
   return !!(hit && hit.license && !String(hit.license).includes("AI"));
 }
 
