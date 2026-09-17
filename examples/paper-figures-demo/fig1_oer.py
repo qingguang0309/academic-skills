@@ -99,10 +99,13 @@ ax.plot(E, j_ruo, color=C_REF, ls="-.", label=r"RuO$_2$")
 ax.plot(E, j_noh, color=C_CTRL, ls="--", label=r"Ni(OH)$_2$")
 ax.axhline(10, color="0.6", lw=0.6, ls=":")
 ax.text(1.213, 13, r"10 mA cm$^{-2}$", color="0.4", fontsize=plt.rcParams["xtick.labelsize"])
-ax.annotate(rf"$\eta_{{10}}$ = {eta10['NiFe-LDH']*1000:.0f} mV", xy=(1.23 + eta10["NiFe-LDH"], 10),
-            xytext=(1.30, 68), color=C_MAIN,
+# η10 标注:锚在 NiFe-LDH 达到 10 mA cm-2 的点,文字左移 0.20 V、上移 0.3 个 y 量程,
+# 落在 10 mA 参考线与左上图例之间的空白里(原先 y=68 顶到图例的 Ni(OH)2 条目)
+E10_ldh, j_ref = 1.23 + eta10["NiFe-LDH"], 10
+ax.annotate(rf"$\eta_{{10}}$ = {eta10['NiFe-LDH']*1000:.0f} mV", xy=(E10_ldh, j_ref),
+            xytext=(E10_ldh - 0.20, j_ref + 0.3 * 100), color=C_MAIN,
             arrowprops=dict(arrowstyle="-", lw=0.6, color=C_MAIN, shrinkB=2))
-ax.set_xlim(1.20, 1.70)
+ax.set_xlim(1.18, 1.70)            # 左端留 20 mV,避免 x 刻度 "1.2" 与 y 刻度 "0" 在原点相撞
 ax.set_ylim(0, 100)
 ax.set_xlabel("Potential (V vs. RHE)")
 ax.set_ylabel(r"Current density (mA cm$^{-2}$)")
