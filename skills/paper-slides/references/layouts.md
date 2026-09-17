@@ -125,7 +125,7 @@ d.page({
 
 // 技术路线/流程:圆形编号 + 连线,横向
 { type: "steps", items: [{ title: "配准", text: "残差 <1 px" }] }
-// ↑ 仅限简单线性步骤。有分支/汇合/分组阶段的流程图用 paper-figures skill 绘制 PNG 后走 figure 块(evidence:"schematic")
+// ↑ 仅限简单线性步骤。有分支/汇合/泳道/阶段的流程图写声明式 JSON 规格,用 paper-figures 的 `schemfig.py flow` 出 PNG 后走 figure 块(evidence:"schematic")
 
 // 提示框:声明、结论强调;tone:'warn' 用于"数值为目标非结果"类声明
 { type: "callout", label: "说明", text: "…", tone: "accent" | "warn" }
@@ -147,7 +147,7 @@ d.page({
 | 这页要呈现 | 用什么 |
 |---|---|
 | 几个方案/条件/样品的比较 | `table`(三线表) |
-| 过程、流程、技术路线 | paper-figures skill 绘制的流程图走 `figure`(`evidence: "schematic"`);3–5 步、无分支的线性时间条才用 `steps` |
+| 过程、流程、技术路线 | 声明式规格经 `schemfig.py flow` 出的流程图走 `figure`(`evidence: "schematic"`);3–5 步、无分支的线性时间条才用 `steps` |
 | 结果 | 数据图:`chart` 或 paper-figures 出图走 `figure`,标 `evidence` |
 | 真实工作的样子 | 实测谱图、系统截图、失败案例走 `figure`(`evidence: "measured"` / `"screenshot"`) |
 | 这页没有合适的自有图 | 检索文献原图走 `figure`(`evidence: "literature"`,`credit` 写引用来源) |

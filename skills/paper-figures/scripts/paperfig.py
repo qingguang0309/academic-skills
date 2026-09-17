@@ -150,20 +150,114 @@ def mosaic(layout, width="double", height_mm: float | None = None,
     return plt.subplot_mosaic(layout, figsize=(mm2in(w_mm), mm2in(h_mm)), **kw)
 
 
-def check_layout(fig, contain: float = 0.60) -> list[str]:
-    """渲染前的程序化布局体检,返回问题清单(空列表 = 通过)。检查三类高发缺陷:
+# ---------------------------------------------------------------- 体检诊断
 
-    1. 文字互撞(任意两段可见文字 bbox 相交)
-    2. 文字出图(bbox 超出画布)
-    3. 数据坐标文字出轴(transData 文字落在所属 axes 外或被裁剪过半——
+class Issue(str):
+    """一条体检诊断。
+
+    它本身仍是一段可打印的中文说明(旧代码把体检结果当 list[str] 用,照样能跑),
+    同时带结构化字段,修复时按 code 对症下药,而不是读完句子再猜:
+
+    - ``code``     稳定的错误代码,如 ``text/overlap``、``arrow/through-element``
+    - ``subject``  出问题的对象(文字内容、元素标签、箭头标签)
+    - ``evidence`` 实测数值(像素、比例、长度),修完拿来对比有没有变好
+    - ``fixes``    可选修法,按推荐顺序排列
+    - ``severity`` ``error`` 阻断导出;``warning`` 只提示
+    """
+
+    def __new__(cls, code, message, subject=None, evidence=None, fixes=(), severity="error"):
+        obj = super().__new__(cls, message)
+        obj.code, obj.subject, obj.severity = code, subject, severity
+        obj.evidence = dict(evidence or {})
+        obj.fixes = list(fixes)
+        return obj
+
+    def to_dict(self) -> dict:
+        return {"code": self.code, "severity": self.severity, "message": str(self),
+                "subject": self.subject, "evidence": self.evidence, "fixes": self.fixes}
+
+
+# 修复顺序:前面的问题会连带制造后面的问题(框挤在一起,箭头和标签自然无处可放),
+# 所以先修前面的,每修一轮重跑体检。
+REPAIR_ORDER = [
+    "spec/",                    # 声明式规格本身写错
+    "flow/",                    # 画布尺寸、重心节点数量等整体约束
+    "text/out-of-figure",
+    "text/out-of-axes",
+    "text/overlap",
+    "text/crosses-box",
+    "container/",
+    "arrow/through-element",
+    "edge/shared-corridor",
+    "arrow/over-text",
+    "edge/label-no-room",
+    "arrow/too-short",
+    "edge/crossing",
+]
+
+REPAIR_RULES = (
+    "按 code 对症修复,一次只改被点名的对象,改完重跑体检;"
+    "连续两轮告警数没有下降就停下来,如实报告剩下的诊断。"
+    "不许为了通过体检删掉物理量、单位、峰位标注或连线标签——先挪位置,再调间距,最后才精简措辞。"
+)
+
+
+def _as_issue(item):
+    return item if isinstance(item, Issue) or hasattr(item, "code") else Issue("legacy", str(item))
+
+
+def _order_key(item):
+    code = getattr(item, "code", "")
+    for i, prefix in enumerate(REPAIR_ORDER):
+        if code.startswith(prefix):
+            return i
+    return len(REPAIR_ORDER)
+
+
+def sort_issues(issues) -> list:
+    """按修复顺序排列诊断(同类保持原有顺序)。"""
+    return sorted((_as_issue(i) for i in issues), key=_order_key)
+
+
+def format_issue(item) -> str:
+    item = _as_issue(item)
+    head = f"[{item.severity} {item.code}] {item}"
+    if item.fixes:
+        head += "\n    修法: " + " / ".join(item.fixes)
+    return head
+
+
+def write_report(stem: str, issues) -> str | None:
+    """把诊断写成 <stem>.check.json;没有诊断时删掉旧报告,避免读到过期结果。"""
+    import json
+    import os
+    path = f"{stem}.check.json"
+    issues = sort_issues(issues)
+    if not issues:
+        if os.path.exists(path):
+            os.remove(path)
+        return None
+    errors = sum(1 for i in issues if i.severity == "error")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"passed": errors == 0, "errors": errors,
+                   "warnings": len(issues) - errors, "repair_rules": REPAIR_RULES,
+                   "issues": [i.to_dict() for i in issues]}, fh, ensure_ascii=False, indent=2)
+    return path
+
+
+def check_layout(fig, contain: float = 0.60) -> list:
+    """渲染前的程序化布局体检,返回诊断清单(空列表 = 通过)。每条是 ``Issue``:
+
+    1. ``text/overlap``          文字互撞(任意两段可见文字 bbox 相交)
+    2. ``text/out-of-figure``    文字出图(bbox 超出画布)
+    3. ``text/out-of-axes``      数据坐标文字出轴(transData 文字落在所属 axes 外或被裁剪过半——
        ax.text/annotate 默认不裁剪,超出坐标范围的标注会"飘"到面板外)
-
-    4. 文字跨越图形框线(示意图高发:文字比框宽,溢出到框外)
-       4b. 元素骑在容器框线上(文字或实心框伸出底带/分区边线)
-    5. 示意图几何检查(schemfig 注册的箭头穿过元素/压过文字)
+    4. ``text/crosses-box``      文字跨越图形框线(示意图高发:文字比框宽,溢出到框外)
+       ``container/straddle-*``  元素骑在容器框线上(文字或实心框伸出底带/分区边线)
+    5. 示意图几何检查(schemfig 注册的箭头穿过元素/压过文字、声明式流程图的布线诊断)
 
     刻度标签之间、panel 标号(axes fraction 坐标)不在第 3 类检查范围。
-    出告警就调整布局重跑;体检通过后仍须出 PNG 亲眼检查(感知类问题查不出来)。
+    出告警就按 REPAIR_ORDER 调整布局重跑;体检通过后仍须出 PNG 亲眼检查(感知类问题查不出来)。
     """
     import itertools
     fig.canvas.draw()
@@ -190,17 +284,30 @@ def check_layout(fig, contain: float = 0.60) -> list[str]:
         texts.append((t, s, b))
     for (t1, s1, b1), (t2, s2, b2) in itertools.combinations(texts, 2):
         if b1.padded(-0.6).overlaps(b2.padded(-0.6)):
-            issues.append(f"文字互撞: {s1!r} × {s2!r}")
+            ib = mpl.transforms.Bbox.intersection(b1, b2)
+            ev = {} if ib is None else {"overlap_px": [round(ib.width, 1), round(ib.height, 1)]}
+            issues.append(Issue(
+                "text/overlap", f"文字互撞: {s1!r} × {s2!r}", subject=[s1, s2], evidence=ev,
+                fixes=["移动其中一段文字(数据标注的偏移从数据算)", "拉开所在元素的间距或加大画布",
+                       "精简措辞——保留物理量、单位和标注本身"]))
+    W, H = fig.bbox.width, fig.bbox.height
     for t, s, b in texts:
-        if (b.x0 < -0.5 or b.y0 < -0.5
-                or b.x1 > fig.bbox.width + 0.5 or b.y1 > fig.bbox.height + 0.5):
-            issues.append(f"文字出图: {s!r}")
+        over = {k: round(v, 1) for k, v in (("left", -b.x0), ("bottom", -b.y0),
+                                              ("right", b.x1 - W), ("top", b.y1 - H)) if v > 0.5}
+        if over:
+            issues.append(Issue(
+                "text/out-of-figure", f"文字出图: {s!r}", subject=s, evidence={"overflow_px": over},
+                fixes=["把文字移回画布内", "加大画布或边距", "缩短文字(保留物理量与单位)"]))
         ax = getattr(t, "axes", None)
         if ax is not None and t.get_transform() is ax.transData:
             ib = mpl.transforms.Bbox.intersection(b, ax.bbox)
             frac = 0.0 if ib is None else (ib.width * ib.height) / (b.width * b.height)
             if frac < contain:
-                issues.append(f"数据坐标文字出轴: {s!r} (仅 {frac:.0%} 在轴内)")
+                issues.append(Issue(
+                    "text/out-of-axes", f"数据坐标文字出轴: {s!r} (仅 {frac:.0%} 在轴内)",
+                    subject=s, evidence={"inside_fraction": round(frac, 2)},
+                    fixes=["按数据范围重新计算标注坐标并留出偏移", "放宽 set_xlim/set_ylim 给标注留白",
+                           "改用 axes fraction 坐标放置"]))
     # 4) 文字跨框线:只查画在 figure 坐标上的实心图形框(示意图元素),
     #    数据图里的 bar/legend patch 不在此列。schemfig 的容器底带
     #    (_schem_solid=False)与占画布过半的背景框跳过——元素本就画在其上。
@@ -212,7 +319,7 @@ def check_layout(fig, contain: float = 0.60) -> list[str]:
         if getattr(p, "_schem_solid", True) is False:
             continue
         bb = p.get_window_extent(r)
-        if bb.width * bb.height > 0.55 * fig.bbox.width * fig.bbox.height:
+        if bb.width * bb.height > 0.55 * W * H:
             continue
         boxes.append(bb)
     for t, s, b in texts:
@@ -220,7 +327,10 @@ def check_layout(fig, contain: float = 0.60) -> list[str]:
             ib = mpl.transforms.Bbox.intersection(b, bb)
             frac = 0.0 if ib is None else (ib.width * ib.height) / (b.width * b.height)
             if 0.08 < frac < 0.95:
-                issues.append(f"文字跨框线: {s!r} (仅 {frac:.0%} 在框内——要么全进要么全出)")
+                issues.append(Issue(
+                    "text/crosses-box", f"文字跨框线: {s!r} (仅 {frac:.0%} 在框内——要么全进要么全出)",
+                    subject=s, evidence={"inside_fraction": round(frac, 2)},
+                    fixes=["内容框改用 sf.text_box,按文字实测尺寸生成", "把文字整体移进或移出该框"]))
     # 4b) 容器压线:容器底带(solid=False)允许元素画在其内部,但元素(文字/实心框)
     #     不许"骑"在容器框线上——要么全进,要么全出。这正是"徽章/长文字
     #     伸出底带边线"一类缺陷的检测点(容器不参与 4 的实心框检查,但
@@ -241,16 +351,23 @@ def check_layout(fig, contain: float = 0.60) -> list[str]:
         for t, s, b in texts:
             frac = _frac_in(b, cb)
             if 0.08 < frac < 0.95:
-                issues.append(f"文字骑在容器框线上: {s!r} (仅 {frac:.0%} 在容器内)")
+                issues.append(Issue(
+                    "container/straddle-text", f"文字骑在容器框线上: {s!r} (仅 {frac:.0%} 在容器内)",
+                    subject=s, evidence={"inside_fraction": round(frac, 2)},
+                    fixes=["把文字整体移进或移出容器底带", "加大容器底带"]))
         for bb in solid_boxes:
             frac = _frac_in(bb, cb)
             if 0.08 < frac < 0.95:
-                issues.append(f"元素框骑在容器框线上 (仅 {frac:.0%} 在容器内,"
-                              f"约 x={bb.x0/fig.bbox.width:.2f},y={bb.y0/fig.bbox.height:.2f})")
+                pos = [round(bb.x0 / W, 2), round(bb.y0 / H, 2)]
+                issues.append(Issue(
+                    "container/straddle-box",
+                    f"元素框骑在容器框线上 (仅 {frac:.0%} 在容器内,约 x={pos[0]:.2f},y={pos[1]:.2f})",
+                    subject=pos, evidence={"inside_fraction": round(frac, 2), "figure_xy": pos},
+                    fixes=["把元素整体移进或移出容器底带", "加大容器底带"]))
     # 5) 示意图几何检查:schemfig.canvas 会在 fig 上挂 _schem_check
     extra = getattr(fig, "_schem_check", None)
     if callable(extra):
-        issues += list(extra())
+        issues += [_as_issue(i) for i in extra()]
     return issues
 
 
@@ -263,24 +380,28 @@ def grayscale(png_path: str) -> str:
 
 
 def export(fig, stem: str, formats=("pdf", "png"), dpi: int = 600,
-           strict: bool = True, crops="auto") -> list[str]:
+           strict: bool = True, crops="auto", report: bool = True) -> list[str]:
     """按最终尺寸导出。默认 PDF（投稿矢量图）+ PNG 600 dpi（预览/检查）。
     需要 TIFF 时在 formats 里加 'tiff'。故意不用 bbox_inches='tight'。
     图要插 Word/PPT 时在 formats 里加 'svg'（文字自动转路径,Word 2016+ 原生
     支持矢量插入,任意缩放不糊;PNG 插 Word 会被默认压缩到 220 ppi）。
 
-    strict=True（默认）：体检告警非零直接拒绝导出——图不许带着已知缺陷
-    交出去。逐条修复后重跑；确认是误报才可 strict=False，且要在交付说明里
-    写明理由。crops="auto"：示意图（schemfig 画布）自动把 PNG 切成 2×2
-    局部放大块，逐块用 Read 亲眼检查（整图缩略看不见几像素的擦边）。
+    strict=True（默认）：体检有 error 级诊断直接拒绝导出——图不许带着已知缺陷
+    交出去。按 REPAIR_ORDER 逐条修复后重跑；确认是误报才可 strict=False，且要在
+    交付说明里写明理由。report=True：有诊断时写 <stem>.check.json（结构化诊断，
+    每轮修复后对比告警数），通过后自动删除。crops="auto"：示意图（schemfig 画布）
+    自动把 PNG 切成 2×2 局部放大块，逐块用 Read 亲眼检查（整图缩略看不见几像素的擦边）。
     """
-    issues = check_layout(fig)
-    for msg in issues:
-        print(f"[paperfig 布局告警] {msg}")
-    if issues and strict:
+    issues = sort_issues(check_layout(fig))
+    for item in issues:
+        print(f"[paperfig 布局告警] {format_issue(item)}")
+    if report:
+        write_report(stem, issues)
+    errors = [i for i in issues if i.severity == "error"]
+    if errors and strict:
         raise RuntimeError(
-            f"布局体检 {len(issues)} 条告警，已阻断导出；逐条修复后重跑"
-            f"（确认误报才可 strict=False，并在交付说明中说明理由）")
+            f"布局体检 {len(errors)} 条 error，已阻断导出（诊断见 {stem}.check.json）。{REPAIR_RULES}"
+            f"确认误报才可 strict=False，并在交付说明中说明理由。")
     paths = []
     for ext in formats:
         path = f"{stem}.{ext}"

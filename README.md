@@ -8,8 +8,8 @@
 
 | Skill | 状态 | 说明 |
 |---|---|---|
-| [paper-figures](skills/paper-figures/) | ✅ 可用 | 顶刊标准论文绘图：Python/matplotlib 矢量出图，按期刊栏宽定尺寸，内置 XRD/XPS/Raman/电化学/吸附等温线等图型规范与色盲安全配色；方法示意图/技术路线图同样用 matplotlib（真实感合成 panel + 论文/汇报双风格）。交付可复现脚本 + PDF + PNG |
-| [paper-slides](skills/paper-slides/) | ✅ 可用 | 标准美观的学术汇报 PPT：pptxgenjs + slidekit.js 组件库，模型只组装组件不手拍坐标；中西文混排自动分字体，封面/目录/章节过渡/三线表/页码等中文学术惯例内建，5 套配色主题（含北大红 `pku` 主题：答辩版式——红带封面、章节号页眉、章节列表页、红带结束页）、中英双语；页题下结论条（关键数据标红加粗）、真上下标、每页有图（缺图报警，文献图须注来源）、全文不用卡片、正文 16–17.5 pt；fetchimg 按题目拉取 CC 许可真实网络配图（格式嗅探/转码/压缩/署名清洗，且 build 时检查全篇是否有真实素材、0 张即报警），自绘流程图/技术路线图调用 paper-figures skill，formula 把 LaTeX 方程渲染进页面（自动降级 LaTeX→mathtext）、算法块排伪代码，chart 出原生可编辑图表（饼图守三条判据否则强制换水平条），wordlint 按四档判定扫 AI 词汇与口号（白名单保护正常术语），页标题只点明主题、完成与计划用 status 标出【已实现】【拟开展】、图注用 evidence 分清实测与示意，标题过长、总结框重复、卡片套分类模板、大数字缺条件、答辩没讲困难与局限都在 build 时报警，填充率低于阈值即报警，aiimg 调 DashScope 出图模型生成概念示意图（目检回炉），组图先单张再 collage 确定性拼版，全部署名由 credits.json 机制自动落页；全片默认注入克制的放映切换效果。产出原生可编辑 pptx + 可复现脚本。示例见 [examples/bse-eds-report/slides](examples/bse-eds-report/slides/) |
+| [paper-figures](skills/paper-figures/) | ✅ 可用 | 顶刊标准论文绘图：Python/matplotlib 矢量出图，按期刊栏宽定尺寸，内置 XRD/XPS/Raman/电化学/吸附等温线等图型规范与色盲安全配色；方法示意图同样用 matplotlib（真实感合成 panel + 论文/汇报双风格）；流程图/技术路线图写声明式 JSON 规格，引擎按“泳道 × 列”网格排版并正交布线；导出前几何体检输出结构化诊断（code/证据/修法），按修复顺序修、两轮不降即停。交付可复现脚本 + PDF + PNG |
+| [paper-slides](skills/paper-slides/) | ✅ 可用 | 标准美观的学术汇报 PPT：pptxgenjs + slidekit.js 组件库，模型只组装组件不手拍坐标；中西文混排自动分字体，封面/目录/章节过渡/三线表/页码等中文学术惯例内建，5 套配色主题（含北大红 `pku` 主题：答辩版式——红带封面、章节号页眉、章节列表页、红带结束页）、中英双语；页题下结论条（关键数据标红加粗）、真上下标、每页有图（缺图报警，文献图须注来源）、全文不用卡片、正文 16–17.5 pt；fetchimg 按题目拉取 CC 许可真实网络配图（格式嗅探/转码/压缩/署名清洗，且 build 时检查全篇是否有真实素材、0 张即报警），自绘流程图/技术路线图写声明式 JSON 规格、由 paper-figures 的 schemfig 自动排版与正交布线，formula 把 LaTeX 方程渲染进页面（自动降级 LaTeX→mathtext）、算法块排伪代码，chart 出原生可编辑图表（饼图守三条判据否则强制换水平条），wordlint 按四档判定扫 AI 词汇与口号（白名单保护正常术语），页标题只点明主题、完成与计划用 status 标出【已实现】【拟开展】、图注用 evidence 分清实测与示意，标题过长、总结框重复、卡片套分类模板、大数字缺条件、答辩没讲困难与局限都在 build 时报警，填充率低于阈值即报警，aiimg 调 DashScope 出图模型生成概念示意图（目检回炉），组图先单张再 collage 确定性拼版，全部署名由 credits.json 机制自动落页；全片默认注入克制的放映切换效果。产出原生可编辑 pptx + 可复现脚本。示例见 [examples/bse-eds-report/slides](examples/bse-eds-report/slides/) |
 | [paper-polish](skills/paper-polish/) | ✅ 可用 | 顶刊编辑视角论文润色：整篇 30+ 条逐条修改意见（Major/Moderate/Minor 分级），每条用中文讲清为什么这样改；改语言不改科学，可疑科学表述单列"编辑提问"；系统性去 AI 味。内置去 AI 味特征清单、审稿维度清单、按 section 组织的顶刊句式库；产出润色报告 + 修改后全文（.tex/.docx 原格式回填） |
 | [paper-word](skills/paper-word/) | ✅ 可用 | 学术 Word 文档风格规范：python-docx 脚本一键套版——页眉左侧北大校徽 + 右侧文档标题 + 北大红分隔线，页脚"第X页/共X页"页码域，全文各级标题（Title/Subtitle/Heading 1–9，所有级别）统一北大红（样式级 + 段落级双重兜底），正文宋体 + Times New Roman、标题微软雅黑 + Arial；技术文档强制参考文献 + 脚注，写作强调去 AI 味、结论先行、直接简洁。与 docx skill 配合：先生成内容再套版 |
 
@@ -91,7 +91,7 @@ academic-skills/
 │   │   │   └── schematic-figures.md # 方法示意图/技术路线图技法
 │   │   └── scripts/
 │   │       ├── paperfig.py       # 数据图统一样式与导出工具（随交付复制给用户）
-│   │       └── schemfig.py       # 示意图组件库（圆角框/曲线箭头/伪3D/双风格）
+│   │       └── schemfig.py       # 示意图组件库（测字配框/避障箭头/声明式流程图引擎/双风格）
 │   ├── paper-slides/
 │   │   ├── SKILL.md              # 触发条件 + 十条铁律 + 工作流程
 │   │   ├── references/

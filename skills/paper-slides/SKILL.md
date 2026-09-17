@@ -16,7 +16,7 @@ description: 制作标准、美观的学术汇报 PPT(pptx)。只要用户提到
 3. **标题简短,只点明主题;结论写进页题下的结论条。** 页标题如"谱峰拟合方法""原型测试与后续验证";中文约 18 字以内,不带逗号句号,不写结论句,也不喊口号。每个内容页用 `conclusion` 写一句结论条(18 pt):写具体事实和数字,关键数据用 `**…**` 标主色加粗;确实没有结论的页(研究计划、目录式页面)显式传 `conclusion:false`。页底主色横条 `banner` 按需使用,说的应当是结论条之外的一句。正文只留关键依据,完整论述放进口头与演讲者备注;同一句话不在标题、结论条、正文、横条里重复出现。slidekit 对超长或像句子的标题、缺结论条、结论条没数字、横条与结论条重复都报警。
 4. **图文并茂,真实素材优先,且在写脚本之前就收集好。** 每个内容页都要有图——课题里没有合适的图,就检索文献把原图插进来,figure 块写 `evidence:"literature"`,在 `credit` 里注明引用来源(第 1.5 步);缺图的页、没写来源的文献图 slidekit 都报警,确实不需要图的页传 `noFigure:true`。素材优先级:实测谱图、原始数据图、系统截图、失败案例 > 文献原图 > 实景照片 > 概念示意。图注用 `evidence` 分清实测、模拟与示意。slidekit 在 `build()` 时检查全篇有无真实素材(标为实测/截图/实拍的图,或 `credits.json` 登记的实景照片),**0 张就报警**;找过确实没有时传 `new Deck({ photos: false })` 显式豁免。实景照片只用 `scripts/fetchimg.py` 拉取(Openverse 聚合的 CC0/公有领域/CC-BY/CC-BY-SA 图),许可与作者自动登记进 `credits.json`,署名自动落页。除注明出处的文献原图外,禁止从搜索引擎/网页随手扒图,禁止用许可不明的图。
 5. **多图先单张,拼版走机制;AI 生图必目检必标注。** 组图永远"先生成每张单图,再用 `scripts/collage.py` 确定性拼版"(等高、统一留白、角标),不把拼版交给生成模型。概念示意图用 `scripts/aiimg.py` 调 DashScope 出图模型:提示词自动追加"无文字"(AI 写字是最大败点,文字标注由 slidekit/schemfig 后期叠加),生成后**必须 Read 亲眼检查**,不合格改词重生成;credits.json 自动标"AI 生成(示意)"并落页。数据图与文字精确的流程图仍走 paper-figures/schemfig——AI 图只做概念与氛围,不做数据陈述。
-6. **自绘流程图与示意图走 paper-figures skill;页面不出现装饰色块。** 技术路线图、方法流程、架构图、机理示意一律调用同仓库的 **paper-figures** skill 绘制(读它的 `references/schematic-figures.md`,用 `scripts/schemfig.py`:`sf.text_box` 先测文字再配框、`sf.connect` 自动取锚点并避障、`sf.export` 出图前体检),导出 PNG 后走 figure 块并标 `evidence:"schematic"`。为与 deck 一致:主色用北大红 `#94070A`(或当前主题主色),框用直角(`rs=0`),中文 Microsoft YaHei、西文 Arial,上屏字号不小于 16 pt 当量。不要在 slidekit 里手摆框和箭头,也不要让生成模型画流程图。**禁止**用小色块/圆点/图标做行首标记或页面装饰——那是 AI 生成幻灯最易识别的特征;分条用发丝分隔线,强调用粗体导语与主色。
+6. **自绘流程图与示意图走 paper-figures skill;页面不出现装饰色块。** 技术路线图、方法流程、架构图、机理示意一律调用同仓库的 **paper-figures** skill 绘制:节点—连线结构的流程图、技术路线图写声明式 JSON 规格,由 `schemfig.py flow` 排版并正交布线(模型不写坐标,连线不穿节点、不叠通道);自由构图的机理示意才用 `sf.text_box` / `sf.connect` 手排。导出 PNG 后走 figure 块并标 `evidence:"schematic"`。为与 deck 一致:主色用北大红 `#94070A`(或当前主题主色),框用直角(`rs=0`),中文 Microsoft YaHei、西文 Arial,上屏字号不小于 16 pt 当量。不要在 slidekit 里手摆框和箭头,也不要让生成模型画流程图。**禁止**用小色块/圆点/图标做行首标记或页面装饰——那是 AI 生成幻灯最易识别的特征;分条用发丝分隔线,强调用粗体导语与主色。
 7. **量值图走原生 chart 块,选型按数据形状定;词汇过 lint。** 占比/对比/趋势类简单量值图用 `chart` 块(pptxgenjs 原生,PowerPoint 内可编辑),**饼图默认不用**——类别 ≤3、只讲"某项过半"、且首尾差 ≥15 个百分点才允许,否则一律降序水平条;分布、误差棒、拟合线走 paper-figures 出矢量图。选型表与实现坑见 [references/charts.md](references/charts.md)。写完跑 `python3 wordlint.py <deck>.js` 清 hard/always 命中;paper-figures 画出的图里的措辞同样要改,口号改在它的绘图脚本里。
 8. **不用卡片、胶囊、圆角框和大面积色块;页题以外的文字放大。** 全文不用 `cards` 块(用了就报警);大数字、提示框、表头、标签一律**不填底色、不画圆角框、不用胶囊 chip**——浅底色块是 AI 生成幻灯的第二个胎记(第一个是小色块)。分区靠**线与留白**:大数字用顶部标尺线,提示框用左侧竖线 + 强调色标签,表格靠三线,照片按需发丝边框(`frame:true`)。实心色块只允许出现在三处:封面与结束页的主色带、内容页左上角的章节号块、按需的页底结论横条。exhibit 按内容选:**比较用三线表,过程用流程图,结果用数据图**。字号:**正文 16–17.5 pt、表格 15.5 pt、结论条 18 pt**(slidekit 默认字阶即如此,不要往小调);文字放不下时先删字,再考虑缩字号——引擎自动降字号时会报警。
 9. **结构围绕研究,内容过"先审计后改写"的去 AI 味流程。** 每个研究部分按**问题是什么—采用什么方法—结果如何—还有什么困难**展开,不套"基础/核心/延伸""方法/系统/生态"这类整齐却重复的分类;答辩/结题全篇没讲困难与局限时 slidekit 报警。幻灯的 AI 味主要在**结构**:三项对称癖、导语对仗、每页同构、三处重复(标题、正文、底部总结说同一件事)。写完全篇后必须把页标题、大纲里的结论列、块类型、bullets 条数各抄成一列做节拍审计。规则与流程见 [references/content-discipline.md](references/content-discipline.md);论文级词表借用同仓库 paper-polish 的 `references/deai-style-guide.md`。
@@ -204,9 +204,27 @@ python3 collage.py assets/ai/duo.png assets/ai/mof.png assets/ai/tower.png --lab
 
 自己绘制的流程图、技术路线图、架构图、机理示意,**一律调用同仓库的 paper-figures skill**,不在 slidekit 里手摆框和箭头,也不让生成模型画:
 
-1. 读 paper-figures 的 `references/schematic-figures.md`,用 `scripts/schemfig.py` 组件库:内容框用 `sf.text_box`(先实测文字再配框,文字不会溢出),连线用 `sf.connect`(自动取框沿锚点并避障),最后 `sf.export` 导出(出图前体检,拦截文字压线、箭头穿框)。
-2. 和 deck 保持一致:白底;主色北大红 `#94070A`(或当前主题主色),在风格字典里加一对强调色,如 `S = {**sf.STYLES["paper"], "red": ("#FFFFFF", "#94070A")}`;框用直角 `rs=0`(全文不用圆角框);中文 Microsoft YaHei、西文 Arial;按上屏尺寸出图,文字不小于 16 pt 当量。
-3. 导出 PNG(≥300 dpi)后走 figure 块,标 `evidence: "schematic"`;图里的上下标用 mathtext(`$^{29}$Si`)。
+1. **流程图、技术路线图写声明式规格,不写坐标。** 按 paper-figures 的 `references/schematic-figures.md`「声明式流程图」写 JSON:节点放进"泳道 × 列"网格,连线只写起止与标签;`schemfig.py flow` 负责排版和正交布线,连线不会穿过节点,也不会叠在同一条通道上:
+
+   ```bash
+   python3 schemfig.py flow roadmap.json -o assets/fig/roadmap --formats png --dpi 300 --json
+   ```
+
+   ```jsonc
+   { "direction": "LR",                                   // 竖版技术路线图用 "TB"
+     "lanes": [{"id": "exp", "label": "实验"}, {"id": "sim", "label": "计算"}],
+     "stages": ["第一年", "第二年", "第三年"],
+     "accents": {"red": ["#FFFFFF", "#94070A"]},          // 与 deck 主题色一致
+     "style": {"font": 16, "label_font": 14, "header_font": 16},   // 上屏字号
+     "size": {"max_width": 12},                            // 不超过幻灯内容区宽度
+     "nodes": [{"id": "syn", "label": "固相法合成", "lane": "exp", "col": 0},
+               {"id": "cyc", "label": "全电池循环", "lane": "exp", "col": 2, "accent": "red", "tone": "emphasis"}],
+     "edges": [{"from": "syn", "to": "cyc", "label": "样品"}] }
+   ```
+
+2. **读回执修规格。** `ok: false` 时按每条诊断的 `code` 对症改(换列、换泳道、加大 `style.col_gap`),连续两轮告警数不降就停下如实报告;**不许删连线标签换通过**。
+3. 自由构图的机理示意(不是节点—连线结构)才用 `sf.text_box` / `sf.connect` 手排,框用直角 `rs=0`,最后 `sf.export` 体检。
+4. PNG 走 figure 块,标 `evidence: "schematic"`;图里的上下标用 mathtext(`$^{29}$Si`)。
 
 ```js
 { type: "figure", path: "assets/fig/roadmap.png", evidence: "schematic", caption: "技术路线", maxH: 4.2 }

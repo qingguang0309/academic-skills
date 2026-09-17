@@ -7,12 +7,88 @@
 
 | 场景 | 方案 |
 |---|---|
+| 流程图、技术路线图（节点 + 连线，常带泳道与阶段） | **声明式规格 + `schemfig.py flow`**（下一节），不写坐标 |
 | 多阶段 pipeline、含数据 panel、需要论文+汇报双版本 | **matplotlib + schemfig**（本文） |
 | 三五个框的轻量示意（能带对齐、简单流程） | 手写 SVG 也可以，字体字号规范照旧 |
 | 3D 晶体结构、真实形貌渲染 | VESTA/Blender 出素材，matplotlib 只做排版标注 |
 
 matplotlib 方案的核心优势：布局参数化可迭代（改一个坐标常量全图联动）、能嵌入**真实渲染的数据
 panel**（示意图里放的是算出来的图不是画出来的框）、字体与数据图完全一致、一套代码出双风格。
+
+## 声明式流程图（节点 + 连线的图一律用这个）
+
+流程图、技术路线图手拍坐标最容易出问题：间距不匀、箭头绕路、几条线叠成一条分不清。
+这类图改成**写规格，由引擎排版**：你只决定每个节点放在哪一格、谁连谁、连线上写什么；
+坐标、框的尺寸、连线路径全部由 `schemfig` 计算。
+
+```bash
+python3 schemfig.py flow roadmap.json -o figures/roadmap --style all --json   # paper + dark 两版
+python3 schemfig.py flow roadmap.json --check --json                          # 只排版体检,不写图
+```
+
+```python
+fig, info = sf.flowchart(spec, style="paper")   # info["nodes"][id] 是 El,可以继续叠 badge
+sf.export(fig, "figures/roadmap")               # 体检把布线诊断与文字/箭头检查合在一起
+```
+
+回执退出码:`0` 通过出图;`1` 有 error 级布线/版面诊断(写 `<stem>.check.json`,不出图);`2` 规格本身写错。
+
+### 规格字段
+
+| 字段 | 说明 |
+|---|---|
+| `direction` | `"LR"` 主线从左到右（默认）；`"TB"` 从上到下（竖版技术路线图） |
+| `lanes` | `[{id, label}]`，泳道：责任方、实验线、子课题；可省略 |
+| `stages` | 每列一个阶段名（年份、阶段）；可省略 |
+| `nodes[]` | `id`、`label`、`sub`（第二行）、`lane`、`col`（从 0 起）、`accent`、`tone`（`"emphasis"` 实底重心，全图 ≤2 个）、`max_w`（换行宽度，英寸） |
+| `edges[]` | `from`、`to`、`label`、`accent`（默认 `spine` 灰）、`style`（`"solid"` / `"dashed"`） |
+| `accents` | 自定义强调色 `{"red": ["#FFFFFF", "#94070A"]}`（浅色填充，深色描边） |
+| `style` | `font`、`label_font`、`header_font`、`node_max_w`、`pad`、`col_gap`、`lane_gap`、`track`、`corner`（默认 0 直角）、`node_lw`、`edge_lw`、`margin` |
+| `size` | `max_width` / `max_height`（英寸），排版超出报 `flow/too-large` |
+
+未知字段、重复 id、连到不存在的节点、两个节点放进同一格都会被拦下（`spec/*`，退出码 2）。
+
+```json
+{
+  "direction": "LR",
+  "lanes": [{"id": "data", "label": "数据"}, {"id": "model", "label": "模型"}, {"id": "valid", "label": "验证"}],
+  "stages": ["数据准备", "模型构建", "实验验证", "成果"],
+  "accents": {"red": ["#FFFFFF", "#94070A"]},
+  "nodes": [
+    {"id": "d0", "label": "文献与数据库采集", "lane": "data", "col": 0},
+    {"id": "d1", "label": "谱图预处理", "sub": "基线校正 · 去噪", "lane": "data", "col": 1},
+    {"id": "m1", "label": "化学位移先验", "lane": "model", "col": 1, "accent": "blue"},
+    {"id": "m2", "label": "谱峰拟合模型", "lane": "model", "col": 2, "accent": "red", "tone": "emphasis"},
+    {"id": "v2", "label": "实测谱图对比", "lane": "valid", "col": 2, "accent": "green"}
+  ],
+  "edges": [
+    {"from": "d0", "to": "d1", "label": "清洗"},
+    {"from": "d1", "to": "m1", "label": "提取特征"},
+    {"from": "m1", "to": "m2", "label": "约束", "accent": "red"},
+    {"from": "m2", "to": "v2", "label": "预测"},
+    {"from": "v2", "to": "m1", "label": "残差反馈", "style": "dashed"}
+  ]
+}
+```
+
+### 引擎保证什么
+
+- **网格**：同列同宽、同泳道同高，尺寸由文字实测决定；节点文字按 `max_w` 换行，不缩字号。
+- **正交布线**：连线只在列间隙和泳道间隙里走，**不会穿过其它节点**；第一段和最后一段垂直于框边。
+- **独立轨道**：经过同一间隙的每条连线占一条轨道，不会叠成一条线；间隙宽度按轨道数自动加宽。
+- **端口错开**：同一条框边上的多个端口按对端位置排序后等距错开；同泳道相邻直连会自动对齐成直线。
+- **反馈与跳级**：回到前序节点的反馈线、跨过中间节点的跳级线，走泳道间隙绕行。
+- **标签**：放在连线最长的一段上，自动避开其它连线；同列上下的短连线把标签放在线旁；间隙按标签实测宽度加宽。
+
+### 写规格的纪律
+
+- **一条主线**：主线沿 `col` 单调推进，支路从主线上最近的节点出发；重心节点（`emphasis`）不超过两个。
+- **泳道表达责任或实验线**，不是装饰；阶段（`stages`）表达时间或阶段，列数与阶段数一致。
+- **连线标签是语义数据**：写动作、物理量或条件（"预测能垒""残差反馈"），不写整句。
+  修布局时先换列、换泳道、调 `style.col_gap` / `lane_gap`，**不许删标签换通过**。
+- **交叉（`edge/crossing`，warning）先试交换泳道顺序**；确实避不开就保留，并在交付说明里一句话说明。
+- 上屏用（PPT）时 `style.font` 取 16 左右，并用 `size.max_width` 控制在幻灯内容区宽度以内；
+  进论文时按栏宽设 `size.max_width`，字号用 `scale_check` 核算。
 
 ## 核心技法（按重要性排序）
 
@@ -103,12 +179,40 @@ A4 版心 150 mm ≈ 51%，14.5 pt → 7.4 pt，10.5 pt → 5.3 pt），确认�
 
 底带 1 → 嵌入图 2 → 箭头 2 → 内容框 3–4 → 高亮节点 5。先定层再画。箭头避障和体检能防住“箭头压字/穿框”，但 zorder 层次仍是设计语言的一部分——该在上层的东西（高亮节点、badge）要真的在上层。
 
+## 体检诊断:按 code 修,会停
+
+`pf.check_layout` / `sf.check` / `schemfig.py flow` 返回的每条诊断都是 `Issue`：
+`code`（稳定代码）、`subject`（出问题的对象）、`evidence`（实测数值）、`fixes`（可选修法）、
+`severity`（`error` 阻断导出，`warning` 只提示）。有诊断就写进 `<stem>.check.json`，全部清零时自动删除旧报告。
+
+| code | 含义 | 常用修法 |
+|---|---|---|
+| `spec/*` | 规格写错：未知字段、重复 id、连到不存在的节点、同一格两个节点、未知泳道或强调色、自环 | 照诊断改规格 |
+| `flow/too-large` | 排版尺寸超出 `size` 限制 | 减小 `node_max_w` 让文字换行、缩间隙或字号、长主线拆成两条泳道 |
+| `flow/too-many-emphasis`（warning） | 重心节点超过 2 个 | 只保留全图重心 |
+| `text/out-of-figure` | 文字出画布 | 移回画布内、加大画布或边距 |
+| `text/out-of-axes` | 数据坐标标注飘出轴外 | 按数据范围重算坐标、放宽 xlim/ylim |
+| `text/overlap` | 两段文字互撞 | 移动其一、拉开间距、精简措辞 |
+| `text/crosses-box` | 文字一半在框内一半在框外 | 用 `sf.text_box` 按实测尺寸建框 |
+| `container/straddle-*` | 文字或元素骑在底带边线上 | 整体移进或移出底带 |
+| `arrow/through-element` | 箭头穿过其它元素 | 调整位置留出通道；节点—连线图改用声明式规格 |
+| `edge/shared-corridor` | 两条连线叠在同一段通道上 | 加大 `style.track`、换列或换泳道、删掉低价值连线 |
+| `arrow/over-text` | 箭头压过文字或其它连线的标签 | 移动文字、调整路径 |
+| `edge/label-no-room` | 连线标签放不进所在线段 | 加大 `col_gap` / `lane_gap`、精简措辞 |
+| `arrow/too-short` | 箭头短到退化 | 拉开两元素间距 |
+| `edge/crossing`（warning） | 连线交叉 | 交换泳道顺序、让支路从最近的主线节点出发 |
+
+修复纪律（与 SKILL.md 第 3 步一致）：按上表顺序修，每轮只改诊断点名的对象，改完重跑；
+**连续两轮告警数没有下降就停下**，在交付说明里如实列出剩下的诊断；
+物理量、单位、标注、连线标签不许为了通过体检删掉。
+
 ## 示意图自检清单（在 SKILL.md 通用清单之上追加）
 
 - [ ] `scale_check` 核算过缩印字号，最小 ≥ 5 pt
 - [ ] 同一实体全图同色，图例齐全；箭头支路颜色有含义且一致
 - [ ] 合成 panel 之间数据同源、逐像素对应（输出真的是输入的分割/变换）
 - [ ] 双风格都渲染检查过（深色版注意低对比文字）
+- [ ] 流程图/技术路线图走声明式规格，回执 `ok: true`；剩下的 `edge/crossing` 已试过交换泳道，保留的在交付说明里解释
 - [ ] 内容框全部出自 text_box/badge（无手拍宽高的 rbox+fig.text），连线全部出自 connect
 - [ ] sf.export 体检告警为零（未用 strict=False 绕过），局部放大块逐块 Read 过
 - [ ] 输出路径、随机种子固定（`default_rng(seed)`），重跑结果一致

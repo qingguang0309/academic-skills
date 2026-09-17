@@ -80,7 +80,7 @@ paper-slides/
 
 | 用途 | 依赖 |
 |---|---|
-| 流程图 / 示意图 | 同仓库的 paper-figures skill（Python + matplotlib） |
+| 流程图 / 示意图 | 同仓库的 paper-figures skill（Python + matplotlib；流程图写 JSON 规格由 `schemfig.py flow` 排版布线） |
 | 真 LaTeX 公式 | TeX 发行版；没有时自动降级为 matplotlib mathtext |
 | 渲染 PDF 目检 | LibreOffice（`soffice`）+ poppler（`pdftoppm`） |
 | AI 概念图 | DashScope API key（环境变量或 `~/dashscope-tool/key.txt`） |
