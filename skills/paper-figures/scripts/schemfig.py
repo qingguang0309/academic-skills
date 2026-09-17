@@ -864,7 +864,22 @@ class _Measurer:
 
 
 def _wrap(meas, text, fontsize, max_w, weight=600):
-    """按实测宽度换行:中文逐字可断,拉丁词整体不拆,行首不留标点。不缩字号。"""
+    """按实测宽度换行:中文逐字可断,拉丁词整体不拆,行首不留标点。不缩字号。
+    行数定下来之后再收窄宽度重排,让各行长度均衡,避免"……位\n点"这种末行只剩一个字。"""
+    lines = _wrap_greedy(meas, text, fontsize, max_w, weight)
+    n = lines.count("\n")
+    if n == 0:
+        return lines
+    w = max_w
+    while w > 0.3 * max_w:
+        trial = _wrap_greedy(meas, text, fontsize, w * 0.94, weight)
+        if trial.count("\n") != n:
+            break
+        w, lines = w * 0.94, trial
+    return lines
+
+
+def _wrap_greedy(meas, text, fontsize, max_w, weight=600):
     out = []
     for line in text.split("\n"):
         if meas.size(line, fontsize, weight)[0] <= max_w:
@@ -1187,13 +1202,14 @@ def _flow_geometry(norm, meas):
             cover = [s for s in ss if not along_m(s)
                      and min(s[0][1], s[1][1]) - 1e-9 <= mk <= max(s[0][1], s[1][1]) + 1e-9]
             seg = cover[0] if cover else max(ss, key=seg_len)
-            at = None
+            # 优先:不压线且不出画布 > 不压线但伸出画布(下面加宽画布兜住) > 压线
+            opts = []
             for side in (1, -1):
                 cm = seg[0][0] + side * (e["lab_m"] / 2 + 0.08)
-                if not blocked(cm, mk, e):
-                    at = (cm, mk)
-                    break
-            e["label_at"] = at or (seg[0][0] + e["lab_m"] / 2 + 0.08, mk)
+                outside = cm - e["lab_m"] / 2 < 0.04 or cm + e["lab_m"] / 2 > total_m - 0.04
+                opts.append((blocked(cm, mk, e), outside, cm))
+            _, _, cm = min(opts, key=lambda o: (o[0], o[1]))
+            e["label_at"] = (cm, mk)
             continue
         main = [s for s in ss if along_m(s) and abs(s[0][0] - s[1][0]) > 1e-9]
         if host[0] in ("g", "first"):
@@ -1220,6 +1236,10 @@ def _flow_geometry(norm, meas):
                 at = (cm, ck)
                 break
         e["label_at"] = at or ((seg[0][0] + seg[1][0]) / 2, (seg[0][1] + seg[1][1]) / 2)
+
+    # 靠画布末端的线旁标签可能伸出去:把画布加宽到兜得住(只延长末端,不挪动已排好的坐标)
+    reach = max((e["label_at"][0] + e["lab_m"] / 2 for e in edges if e.get("label_at")), default=0.0)
+    total_m = max(total_m, reach + 0.08)
 
     return dict(LR=LR, col_start=col_start, col_ext=col_ext, lane_start=lane_start, lane_ext=lane_ext,
                 lane_m=lane_m, header_k=header_k, bp=bp, total_m=total_m, total_k=total_k,

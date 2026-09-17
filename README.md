@@ -17,6 +17,8 @@
 
 多面板大图(架构图/技术路线图)另有 **[figflow](figflow/)** 分治出图工作流:面板由并行子代理生成自检,箭头/色带/徽标由确定性排版引擎按锚点合成(模型不手拍大图坐标,连接类缺陷从机制上消除),再经对抗性审图回炉;示例见 [examples/figflow-demo](examples/figflow-demo/)。
 
+skill 改得好不好用数字说话:**[evals/paper-figures](evals/paper-figures/)** 固定 5 道出图题(XRD、CV+EIS、吸附等温线、技术路线图、TOC),模型第一次交付后立即冻结,按内容正确、独立体检零 error、人工看过三关打分,结果连同 skill 版本哈希记进 history.jsonl。
+
 ## 安装
 
 ### Claude Code（推荐）
@@ -80,6 +82,7 @@ academic-skills/
 ├── paperflow/                    # LangGraph 论文生成流水线(引用核验/组装/QA)
 ├── figflow/                      # 分治出图工作流(并行面板+确定性排版引擎)
 ├── examples/                     # 端到端演示(paper-figures-demo、paperflow-demo…)
+├── evals/paper-figures/          # 首次出图可用率评测(5 道固定题,冻结交付后三关打分)
 ├── web/                          # 本地工作台(Next.js:运行/资源预览/技能管理)
 ├── skills/
 │   ├── paper-figures/

@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import math
 import string
 
 import matplotlib as mpl
@@ -182,11 +183,14 @@ class Issue(str):
 REPAIR_ORDER = [
     "spec/",                    # 声明式规格本身写错
     "flow/",                    # 画布尺寸、重心节点数量等整体约束
+    "text/too-small",
     "text/out-of-figure",
     "text/out-of-axes",
     "text/overlap",
+    "text/crosses-axis",
     "text/crosses-box",
     "container/",
+    "inset/covers-data",
     "arrow/through-element",
     "edge/shared-corridor",
     "arrow/over-text",
@@ -245,6 +249,25 @@ def write_report(stem: str, issues) -> str | None:
     return path
 
 
+# TOC / graphical abstract 的成品尺寸(英寸)。图幅命中其一就按 TOC 字号底线体检:
+# 缩略图里 8 pt 以下的字读不出来。
+TOC_SIZES = {
+    "ACS TOC": (3.25, 1.75),
+    "RSC TOC": (80 / MM_PER_IN, 40 / MM_PER_IN),
+    "Wiley ToC": (55 / MM_PER_IN, 50 / MM_PER_IN),
+}
+MIN_FONT_PT = 5.0          # 任何文字在最终印刷尺寸下的底线
+MIN_FONT_TOC_PT = 8.0
+
+
+def _toc_kind(fig):
+    w, h = fig.get_size_inches()
+    for name, (tw, th) in TOC_SIZES.items():
+        if abs(w - tw) <= 0.03 * tw and abs(h - th) <= 0.03 * th:
+            return name
+    return None
+
+
 def check_layout(fig, contain: float = 0.60) -> list:
     """渲染前的程序化布局体检,返回诊断清单(空列表 = 通过)。每条是 ``Issue``:
 
@@ -255,6 +278,12 @@ def check_layout(fig, contain: float = 0.60) -> list:
     4. ``text/crosses-box``      文字跨越图形框线(示意图高发:文字比框宽,溢出到框外)
        ``container/straddle-*``  元素骑在容器框线上(文字或实心框伸出底带/分区边线)
     5. 示意图几何检查(schemfig 注册的箭头穿过元素/压过文字、声明式流程图的布线诊断)
+    6. ``text/too-small``        字号低于底线(印刷 5 pt;图幅是 TOC 尺寸时 8 pt)
+    7. ``arrow/over-text``       数据图里 annotate 画的箭头/标尺线压过别的文字
+    8. ``inset/covers-data``     插图(含刻度与轴标签)盖住了主图的数据线或数据点
+    9. ``text/crosses-axis``     标注文字压在坐标轴框线或内向刻度上
+
+    所有阈值按磅(pt)计,与绘图后端和屏幕像素比无关——同一张图在 macOS 与 Linux 上结论一致。
 
     刻度标签之间、panel 标号(axes fraction 坐标)不在第 3 类检查范围。
     出告警就按 REPAIR_ORDER 调整布局重跑;体检通过后仍须出 PNG 亲眼检查(感知类问题查不出来)。
@@ -262,10 +291,12 @@ def check_layout(fig, contain: float = 0.60) -> list:
     import itertools
     fig.canvas.draw()
     r = fig.canvas.get_renderer()
+    pt = 72.0 / fig.dpi          # 像素 → 磅
     # 幽灵刻度:locator 会在坐标范围外生成刻度,渲染时被裁剪(不可见),
     # 但 Text 对象仍在且带坐标,必须排除,否则全是误报
     phantom = set()
-    for ax in fig.axes:
+    # 插图(ax.inset_axes)不在 fig.axes 里,要用 findobj 把子坐标轴一起找出来
+    for ax in fig.findobj(mpl.axes.Axes):
         for axis, lim in ((ax.xaxis, sorted(ax.get_xlim())),
                           (ax.yaxis, sorted(ax.get_ylim()))):
             lo, hi = lim
@@ -282,21 +313,22 @@ def check_layout(fig, contain: float = 0.60) -> list:
         if b.width <= 1 or b.height <= 1:
             continue
         texts.append((t, s, b))
+    # 文字框自带行距留白,相交不足 1 pt 的看不出碰撞,不报
     for (t1, s1, b1), (t2, s2, b2) in itertools.combinations(texts, 2):
-        if b1.padded(-0.6).overlaps(b2.padded(-0.6)):
-            ib = mpl.transforms.Bbox.intersection(b1, b2)
-            ev = {} if ib is None else {"overlap_px": [round(ib.width, 1), round(ib.height, 1)]}
+        ib = mpl.transforms.Bbox.intersection(b1, b2)
+        if ib is not None and ib.width * pt > 1.0 and ib.height * pt > 1.0:
+            ev = {"overlap_pt": [round(ib.width * pt, 1), round(ib.height * pt, 1)]}
             issues.append(Issue(
                 "text/overlap", f"文字互撞: {s1!r} × {s2!r}", subject=[s1, s2], evidence=ev,
                 fixes=["移动其中一段文字(数据标注的偏移从数据算)", "拉开所在元素的间距或加大画布",
                        "精简措辞——保留物理量、单位和标注本身"]))
     W, H = fig.bbox.width, fig.bbox.height
     for t, s, b in texts:
-        over = {k: round(v, 1) for k, v in (("left", -b.x0), ("bottom", -b.y0),
-                                              ("right", b.x1 - W), ("top", b.y1 - H)) if v > 0.5}
+        over = {k: round(v * pt, 1) for k, v in (("left", -b.x0), ("bottom", -b.y0),
+                                                   ("right", b.x1 - W), ("top", b.y1 - H)) if v * pt > 0.5}
         if over:
             issues.append(Issue(
-                "text/out-of-figure", f"文字出图: {s!r}", subject=s, evidence={"overflow_px": over},
+                "text/out-of-figure", f"文字出图: {s!r}", subject=s, evidence={"overflow_pt": over},
                 fixes=["把文字移回画布内", "加大画布或边距", "缩短文字(保留物理量与单位)"]))
         ax = getattr(t, "axes", None)
         if ax is not None and t.get_transform() is ax.transData:
@@ -364,6 +396,151 @@ def check_layout(fig, contain: float = 0.60) -> list:
                     f"元素框骑在容器框线上 (仅 {frac:.0%} 在容器内,约 x={pos[0]:.2f},y={pos[1]:.2f})",
                     subject=pos, evidence={"inside_fraction": round(frac, 2), "figure_xy": pos},
                     fixes=["把元素整体移进或移出容器底带", "加大容器底带"]))
+    # 6) 字号底线:图按最终尺寸建,fontsize 就是印刷磅值
+    toc = _toc_kind(fig)
+    floor = MIN_FONT_TOC_PT if toc else MIN_FONT_PT
+    small = sorted({(round(t.get_fontsize(), 1), s) for t, s, _ in texts if t.get_fontsize() < floor - 1e-6})
+    if small:
+        where = f"{toc} 图幅" if toc else "印刷尺寸"
+        issues.append(Issue(
+            "text/too-small", f"{len(small)} 段文字小于 {floor:g} pt({where}): "
+            + ", ".join(f"{s[:12]!r} {z:g} pt" for z, s in small[:5]),
+            subject=[s for _, s in small], evidence={"floor_pt": floor, "sizes_pt": [z for z, _ in small]},
+            fixes=["加大字号到底线以上", "删减次要文字(TOC 只留核心概念和关键数字)",
+                   "拉开布局腾出空间,不要靠缩字塞内容"]))
+
+    # 7) 数据图里的标注箭头/标尺线压字(schemfig 自己登记的箭头由第 5 项查)
+    from matplotlib.patches import FancyArrowPatch
+    from matplotlib.text import Annotation
+    arrows = []
+    for ann in fig.findobj(Annotation):
+        ap = getattr(ann, "arrow_patch", None)
+        if ap is not None and ap.get_visible() and ann.get_visible():
+            arrows.append((ann, ap))
+    own = {id(ap) for _, ap in arrows}
+    for ax in fig.findobj(mpl.axes.Axes):
+        for p in ax.patches:
+            if isinstance(p, FancyArrowPatch) and p.get_visible() and id(p) not in own:
+                arrows.append((None, p))
+    for ann, ap in arrows:
+        try:
+            polys = ap.get_transform().transform_path(ap.get_path()).to_polygons(closed_only=False)
+        except Exception:
+            continue
+        samples = []
+        for poly in polys:
+            for (x0, y0), (x1, y1) in zip(poly[:-1], poly[1:]):
+                n = max(2, int(math.hypot(x1 - x0, y1 - y0) / 1.5))
+                samples += [(x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n) for k in range(n + 1)]
+        if not samples:
+            continue
+        name = (ann.get_text().strip() if ann is not None else "") or "标注箭头"
+        for t, s, b in texts:
+            if t is ann:
+                continue
+            inner = b.padded(-1.0 / pt)          # 贴边不算,压进 1 pt 才算
+            if inner.width <= 0 or inner.height <= 0:
+                continue
+            if any(inner.x0 < x < inner.x1 and inner.y0 < y < inner.y1 for x, y in samples):
+                issues.append(Issue(
+                    "arrow/over-text", f"标注箭头压过文字: {name!r} × {s!r}",
+                    subject={"arrow": name, "text": s},
+                    fixes=["把文字移到箭头一侧(偏移从数据算)", "缩短箭头或改变起止点",
+                           "文字改用 annotate 自带的 xytext 放在箭头尾端"]))
+
+    # 8) 插图盖住数据:插图不透明,主图落在它(含刻度与轴标签)下面的线和点就看不见了
+    axes_all = [a for a in fig.findobj(mpl.axes.Axes) if a.get_visible()]
+    for child in axes_all:
+        patch = child.patch
+        if not patch.get_visible() or patch.get_facecolor()[3] == 0:
+            continue
+        cb_area = child.bbox
+        for parent in axes_all:
+            pb = parent.bbox
+            if parent is child or cb_area.width * cb_area.height >= pb.width * pb.height:
+                continue
+            if not (pb.x0 - 1 <= cb_area.x0 and cb_area.x1 <= pb.x1 + 1
+                    and pb.y0 - 1 <= cb_area.y0 and cb_area.y1 <= pb.y1 + 1):
+                continue
+            cover = child.get_tightbbox(r)
+            hidden = []
+            for ln in parent.get_lines():
+                if not ln.get_visible() or len(ln.get_xydata()) == 0:
+                    continue
+                xy = ln.get_transform().transform(ln.get_xydata())
+                inside_ax = [(x, y) for x, y in xy if pb.x0 <= x <= pb.x1 and pb.y0 <= y <= pb.y1]
+                marks = sum(1 for x, y in inside_ax if cover.x0 < x < cover.x1 and cover.y0 < y < cover.y1)
+                length = 0.0
+                if ln.get_linestyle() not in ("None", " ", ""):
+                    for (x0, y0), (x1, y1) in zip(xy[:-1], xy[1:]):
+                        n = max(2, int(math.hypot(x1 - x0, y1 - y0) / 1.5))
+                        for k in range(n):
+                            x, y = x0 + (x1 - x0) * (k + 0.5) / n, y0 + (y1 - y0) * (k + 0.5) / n
+                            if (cover.x0 < x < cover.x1 and cover.y0 < y < cover.y1
+                                    and pb.x0 <= x <= pb.x1 and pb.y0 <= y <= pb.y1):
+                                length += math.hypot(x1 - x0, y1 - y0) / n
+                has_marker = ln.get_marker() not in (None, "None", " ", "", "none")
+                if (has_marker and marks) or length * pt > 3.0:
+                    lab = ln.get_label()
+                    if not lab or lab.startswith("_"):
+                        lab = f"第 {parent.get_lines().index(ln) + 1} 条线({mpl.colors.to_hex(ln.get_color())})"
+                    hidden.append((lab, marks if has_marker else 0, round(length * pt, 1)))
+            for coll in parent.collections:
+                offs = getattr(coll, "get_offsets", lambda: [])()
+                if not coll.get_visible() or len(offs) == 0:
+                    continue
+                xy = coll.get_offset_transform().transform(offs)
+                marks = sum(1 for x, y in xy if cover.x0 < x < cover.x1 and cover.y0 < y < cover.y1
+                            and pb.x0 <= x <= pb.x1 and pb.y0 <= y <= pb.y1)
+                if marks:
+                    lab = coll.get_label()
+                    hidden.append((lab if lab and not lab.startswith("_") else "散点", marks, 0.0))
+            if hidden:
+                names = [h[0] for h in hidden]
+                issues.append(Issue(
+                    "inset/covers-data", f"插图盖住了主图数据: {', '.join(map(str, names))}",
+                    subject=names,
+                    evidence={"hidden": [{"series": n, "points": m, "line_pt": l}
+                                         for n, (_, m, l) in zip(names, hidden)]},
+                    fixes=["把插图移到没有数据的空白区域(按数据范围算位置)",
+                           "放宽主图坐标范围给插图腾出空白", "缩小插图,或改成并排的独立 panel"]))
+
+    # 9) 标注压轴:ax.text/annotate 的文字压在坐标轴框线上,或落进内向刻度的那一条带
+    for ax in axes_all:
+        if not ax.axison:
+            continue
+        own_texts = {id(t) for t in ax.texts}
+        ab = ax.bbox
+        bands = []
+        for side, spine in ax.spines.items():
+            if not spine.get_visible() or side not in ("left", "right", "bottom", "top"):
+                continue
+            axis = ax.xaxis if side in ("bottom", "top") else ax.yaxis
+            tick_in = 0.0
+            if mpl.rcParams[f"{'x' if axis is ax.xaxis else 'y'}tick.direction"] in ("in", "inout"):
+                tick_in = mpl.rcParams[f"{'x' if axis is ax.xaxis else 'y'}tick.major.size"] / pt
+            lw = max(spine.get_linewidth() / pt / 2, 0.5)
+            if side == "bottom":
+                bands.append((side, ab.x0, ab.y0 - lw, ab.x1, ab.y0 + lw + tick_in))
+            elif side == "top":
+                bands.append((side, ab.x0, ab.y1 - lw - tick_in, ab.x1, ab.y1 + lw))
+            elif side == "left":
+                bands.append((side, ab.x0 - lw, ab.y0, ab.x0 + lw + tick_in, ab.y1))
+            else:
+                bands.append((side, ab.x1 - lw - tick_in, ab.y0, ab.x1 + lw, ab.y1))
+        for t, s, b in texts:
+            if id(t) not in own_texts or getattr(t, "axes", None) is not ax:
+                continue
+            inner = b.padded(-0.5 / pt)
+            for side, x0, y0, x1, y1 in bands:
+                if inner.x0 < x1 and inner.x1 > x0 and inner.y0 < y1 and inner.y1 > y0:
+                    issues.append(Issue(
+                        "text/crosses-axis", f"标注压在坐标轴{ {'bottom': '下', 'top': '上', 'left': '左', 'right': '右'}[side] }框线或刻度上: {s!r}",
+                        subject=s, evidence={"side": side},
+                        fixes=["把标注往坐标区内挪,离框线留出刻度长度以上的空白",
+                               "放宽坐标范围给标注腾位置", "改放在数据曲线旁的空白处"]))
+                    break
+
     # 5) 示意图几何检查:schemfig.canvas 会在 fig 上挂 _schem_check
     extra = getattr(fig, "_schem_check", None)
     if callable(extra):

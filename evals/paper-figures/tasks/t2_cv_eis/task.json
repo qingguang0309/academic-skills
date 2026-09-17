@@ -1,0 +1,101 @@
+{
+  "title": "CV 多扫速 + Nyquist 双 panel",
+  "prompt": "data/cv.csv 是一个 NiFe 电极在 1 M KOH 里 4 个扫速(10/20/50/100 mV/s)的 CV,data/eis.csv 是同一电极的阻抗谱。帮我画一张投 JACS 的双栏组图:a 是不同扫速的 CV,b 是 Nyquist 图。等效电路拟合结果是 Rs = 1.8 Ω、Rct = 24.5 Ω,请标在 b 里。",
+  "rubric": [
+    {
+      "type": "size_in",
+      "w": [
+        6.8,
+        7.2
+      ],
+      "why": "ACS 双栏 177.8 mm"
+    },
+    {
+      "type": "n_axes_min",
+      "n": 2,
+      "why": "两个 panel"
+    },
+    {
+      "type": "panel_labels",
+      "letters": [
+        "a",
+        "b"
+      ],
+      "why": "panel 标号 a、b"
+    },
+    {
+      "type": "axis_label",
+      "axis": "x",
+      "all": [
+        "potential|E",
+        "V",
+        "RHE"
+      ],
+      "why": "CV 横轴电位带参比"
+    },
+    {
+      "type": "axis_label",
+      "axis": "y",
+      "all": [
+        "current|j|I",
+        "mA|A"
+      ],
+      "why": "CV 纵轴电流带单位"
+    },
+    {
+      "type": "axis_label",
+      "axis": "x",
+      "all": [
+        "Z",
+        "Ω|ohm"
+      ],
+      "why": "Nyquist 横轴 Z' 带单位"
+    },
+    {
+      "type": "aspect_equal",
+      "xlabel": "Z",
+      "tol": 0.12,
+      "why": "Nyquist 两轴等比例"
+    },
+    {
+      "type": "text",
+      "all": [
+        "mV\\s*s|mV/s"
+      ],
+      "why": "扫速有单位"
+    },
+    {
+      "type": "text",
+      "all": [
+        "24\\.5",
+        "1\\.8"
+      ],
+      "why": "拟合结果写在图上"
+    },
+    {
+      "type": "no_axes_title",
+      "why": "图里不放标题"
+    },
+    {
+      "type": "min_font_pt",
+      "pt": 5.0,
+      "why": "印刷最小字号"
+    },
+    {
+      "type": "no_cmap",
+      "names": [
+        "jet",
+        "rainbow",
+        "hsv",
+        "gist_rainbow",
+        "nipy_spectral"
+      ],
+      "why": "不用彩虹色标"
+    },
+    {
+      "type": "png_dpi_min",
+      "dpi": 300,
+      "why": "预览 PNG 分辨率"
+    }
+  ]
+}

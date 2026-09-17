@@ -1,0 +1,76 @@
+{
+  "title": "XRD 堆叠谱图 + 标准卡片",
+  "prompt": "data/ 里是三个样品的 XRD 原始计数(xrd_counts.csv:TiO2、2% Nb 掺杂、5% Nb 掺杂)和锐钛矿标准卡片 JCPDS 21-1272 的峰位(anatase_JCPDS_21-1272.csv)。帮我画一张投 Angew 的单栏图:三条谱上下错开堆叠,底部用竖线画出标准卡片,标出主要晶面指数。5% Nb 样品在 27.4° 附近多出一个峰,是金红石相 (110) 杂峰,请在图上指出来。",
+  "rubric": [
+    {
+      "type": "size_in",
+      "w": [
+        3.25,
+        3.45
+      ],
+      "why": "Wiley 单栏 85 mm"
+    },
+    {
+      "type": "axis_label",
+      "axis": "x",
+      "all": [
+        "2θ|2theta",
+        "°|deg"
+      ],
+      "why": "横轴 2θ 带单位"
+    },
+    {
+      "type": "axis_label",
+      "axis": "y",
+      "all": [
+        "intensity"
+      ],
+      "why": "纵轴写强度"
+    },
+    {
+      "type": "text",
+      "all": [
+        "\\(101\\)",
+        "\\(200\\)"
+      ],
+      "why": "标出主要晶面"
+    },
+    {
+      "type": "text",
+      "all": [
+        "rutile|金红石|\\bR\\b|\\(110\\)"
+      ],
+      "why": "指出金红石杂峰"
+    },
+    {
+      "type": "text",
+      "all": [
+        "TiO",
+        "Nb.*2|2.*Nb",
+        "Nb.*5|5.*Nb"
+      ],
+      "why": "三个样品都有标识"
+    },
+    {
+      "type": "text",
+      "all": [
+        "JCPDS|21-1272|anatase|锐钛矿"
+      ],
+      "why": "标准卡片有标识"
+    },
+    {
+      "type": "no_axes_title",
+      "why": "图里不放标题"
+    },
+    {
+      "type": "min_font_pt",
+      "pt": 5.0,
+      "why": "印刷最小字号"
+    },
+    {
+      "type": "png_dpi_min",
+      "dpi": 300,
+      "why": "预览 PNG 分辨率"
+    }
+  ]
+}

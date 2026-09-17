@@ -38,6 +38,7 @@ paperfig.py 的 `JOURNALS` 字典与本表一致（键名见括号）。
 | RSC | 8 cm × 4 cm | 横条构图 |
 
 TOC 图信息密度要远低于正文图：一个核心概念 + 极少文字，字号放大到在缩略图里可读。
+图幅命中上表 ACS/RSC/Wiley 尺寸时，导出体检按 **8 pt** 字号底线把关（`text/too-small`），建议 9 pt 以上。
 
 ## Panel 标号惯例
 

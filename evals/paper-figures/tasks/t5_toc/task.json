@@ -1,0 +1,61 @@
+{
+  "title": "JACS TOC 图",
+  "prompt": "帮我画一张投 JACS 的 TOC 图。工作内容:在氮掺杂碳上锚定单原子 Co(Co–N4 位点)做碱性析氧(OER)催化剂,10 mA cm⁻² 下过电位 280 mV,稳定运行 100 h。不需要实验数据,用示意的方式表现核心概念就行。",
+  "rubric": [
+    {
+      "type": "size_in",
+      "w": [
+        3.18,
+        3.32
+      ],
+      "h": [
+        1.7,
+        1.8
+      ],
+      "why": "ACS TOC 3.25 × 1.75 in"
+    },
+    {
+      "type": "text",
+      "all": [
+        "280",
+        "mV"
+      ],
+      "why": "关键数字带单位"
+    },
+    {
+      "type": "text",
+      "all": [
+        "OER|O2|析氧"
+      ],
+      "why": "点明反应"
+    },
+    {
+      "type": "text",
+      "all": [
+        "Co"
+      ],
+      "why": "点明活性位点"
+    },
+    {
+      "type": "min_font_pt",
+      "pt": 7.0,
+      "why": "TOC 缩略图里可读"
+    },
+    {
+      "type": "no_cmap",
+      "names": [
+        "jet",
+        "rainbow",
+        "hsv",
+        "gist_rainbow",
+        "nipy_spectral"
+      ],
+      "why": "不用彩虹色标"
+    },
+    {
+      "type": "png_dpi_min",
+      "dpi": 300,
+      "why": "预览 PNG 分辨率"
+    }
+  ]
+}

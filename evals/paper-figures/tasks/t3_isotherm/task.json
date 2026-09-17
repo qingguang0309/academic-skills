@@ -1,0 +1,79 @@
+{
+  "title": "N2 吸脱附等温线 + 孔径分布插图",
+  "prompt": "data/n2_isotherm_77K.csv 是两个样品(NC-800 和 Co-SA/NC)77 K 的 N2 吸附/脱附数据,data/bjh_pore_size.csv 是 BJH 孔径分布。帮我画投 Applied Catalysis B 的单栏图:吸附支用实心符号、脱附支用空心符号,孔径分布做成插图。两个样品的 BET 比表面积分别是 412 和 638 m² g⁻¹,标在图上。",
+  "rubric": [
+    {
+      "type": "size_in",
+      "w": [
+        3.4,
+        3.7
+      ],
+      "why": "Elsevier 单栏 90 mm"
+    },
+    {
+      "type": "n_axes_min",
+      "n": 2,
+      "why": "主图 + 插图"
+    },
+    {
+      "type": "axis_label",
+      "axis": "x",
+      "all": [
+        "P/P0|P/P_0|p/p0|relative pressure|相对压力"
+      ],
+      "why": "横轴相对压力"
+    },
+    {
+      "type": "axis_label",
+      "axis": "y",
+      "all": [
+        "cm3|cm\\^3",
+        "STP"
+      ],
+      "why": "纵轴吸附量带 STP"
+    },
+    {
+      "type": "axis_label",
+      "axis": "x",
+      "all": [
+        "nm"
+      ],
+      "why": "孔径轴带单位"
+    },
+    {
+      "type": "markers_open_and_filled",
+      "why": "吸附实心、脱附空心"
+    },
+    {
+      "type": "text",
+      "all": [
+        "412",
+        "638",
+        "m2\\s*g-1|m2/g|m2g-1"
+      ],
+      "why": "BET 比表面积带单位"
+    },
+    {
+      "type": "text",
+      "all": [
+        "NC-800",
+        "Co-SA/NC"
+      ],
+      "why": "两个样品都有标识"
+    },
+    {
+      "type": "no_axes_title",
+      "why": "图里不放标题"
+    },
+    {
+      "type": "min_font_pt",
+      "pt": 5.0,
+      "why": "印刷最小字号"
+    },
+    {
+      "type": "png_dpi_min",
+      "dpi": 300,
+      "why": "预览 PNG 分辨率"
+    }
+  ]
+}

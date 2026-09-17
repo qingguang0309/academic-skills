@@ -190,14 +190,17 @@ A4 版心 150 mm ≈ 51%，14.5 pt → 7.4 pt，10.5 pt → 5.3 pt），确认�
 | `spec/*` | 规格写错：未知字段、重复 id、连到不存在的节点、同一格两个节点、未知泳道或强调色、自环 | 照诊断改规格 |
 | `flow/too-large` | 排版尺寸超出 `size` 限制 | 减小 `node_max_w` 让文字换行、缩间隙或字号、长主线拆成两条泳道 |
 | `flow/too-many-emphasis`（warning） | 重心节点超过 2 个 | 只保留全图重心 |
+| `text/too-small` | 字号低于底线:印刷 5 pt;图幅是 TOC 尺寸(ACS 3.25×1.75 in、RSC 8×4 cm、Wiley 55×50 mm)时 8 pt | 加大字号;TOC 删减次要文字,不靠缩字塞内容 |
 | `text/out-of-figure` | 文字出画布 | 移回画布内、加大画布或边距 |
 | `text/out-of-axes` | 数据坐标标注飘出轴外 | 按数据范围重算坐标、放宽 xlim/ylim |
-| `text/overlap` | 两段文字互撞 | 移动其一、拉开间距、精简措辞 |
+| `text/overlap` | 两段文字互撞(相交超过 1 pt) | 移动其一、拉开间距、精简措辞 |
+| `text/crosses-axis` | 标注压在坐标轴框线或内向刻度上 | 往坐标区内挪、放宽坐标范围 |
 | `text/crosses-box` | 文字一半在框内一半在框外 | 用 `sf.text_box` 按实测尺寸建框 |
 | `container/straddle-*` | 文字或元素骑在底带边线上 | 整体移进或移出底带 |
+| `inset/covers-data` | 插图(含刻度和轴标签)盖住主图的数据线或点 | 挪到数据空白区、放宽主图范围、缩小插图或改成独立 panel |
 | `arrow/through-element` | 箭头穿过其它元素 | 调整位置留出通道；节点—连线图改用声明式规格 |
 | `edge/shared-corridor` | 两条连线叠在同一段通道上 | 加大 `style.track`、换列或换泳道、删掉低价值连线 |
-| `arrow/over-text` | 箭头压过文字或其它连线的标签 | 移动文字、调整路径 |
+| `arrow/over-text` | 箭头压过文字或其它连线的标签(数据图里 annotate 的箭头同样查) | 移动文字、调整路径 |
 | `edge/label-no-room` | 连线标签放不进所在线段 | 加大 `col_gap` / `lane_gap`、精简措辞 |
 | `arrow/too-short` | 箭头短到退化 | 拉开两元素间距 |
 | `edge/crossing`（warning） | 连线交叉 | 交换泳道顺序、让支路从最近的主线节点出发 |
