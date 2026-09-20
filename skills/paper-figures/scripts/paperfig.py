@@ -188,6 +188,7 @@ REPAIR_ORDER = [
     "text/out-of-axes",
     "text/overlap",
     "text/crosses-axis",
+    "text/over-data",
     "text/crosses-box",
     "container/",
     "inset/covers-data",
@@ -256,6 +257,7 @@ TOC_SIZES = {
     "RSC TOC": (80 / MM_PER_IN, 40 / MM_PER_IN),
     "Wiley ToC": (55 / MM_PER_IN, 50 / MM_PER_IN),
 }
+CHECK_DPI = 600            # 体检测量分辨率(与导出同级,文字尺寸已收敛)
 MIN_FONT_PT = 5.0          # 任何文字在最终印刷尺寸下的底线
 MIN_FONT_TOC_PT = 8.0
 
@@ -269,6 +271,24 @@ def _toc_kind(fig):
 
 
 def check_layout(fig, contain: float = 0.60) -> list:
+    """体检入口:固定用 Agg 画布、在 CHECK_DPI 下测量,再调用 _check_layout。
+
+    文字尺寸会随 dpi 变:低 dpi 下公式上下标按整像素取整,字框能虚胖 2 pt;
+    macOS 默认后端在高分屏上又会把 dpi 翻倍。于是贴边的标注会一台机器报错、另一台通过。
+    统一在导出同级的分辨率上用 Agg 测量,量到的就是交付 PDF/PNG 的真实位置,在哪里体检结论都一样。"""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    orig_canvas, orig_dpi = fig.canvas, fig.dpi
+    try:
+        FigureCanvasAgg(fig)
+        fig.dpi = CHECK_DPI
+        return _check_layout(fig, contain)
+    finally:
+        if fig.dpi != orig_dpi:
+            fig.dpi = orig_dpi
+        fig.set_canvas(orig_canvas)
+
+
+def _check_layout(fig, contain: float = 0.60) -> list:
     """渲染前的程序化布局体检,返回诊断清单(空列表 = 通过)。每条是 ``Issue``:
 
     1. ``text/overlap``          文字互撞(任意两段可见文字 bbox 相交)
@@ -282,6 +302,7 @@ def check_layout(fig, contain: float = 0.60) -> list:
     7. ``arrow/over-text``       数据图里 annotate 画的箭头/标尺线压过别的文字
     8. ``inset/covers-data``     插图(含刻度与轴标签)盖住了主图的数据线或数据点
     9. ``text/crosses-axis``     标注文字压在坐标轴框线或内向刻度上
+    10. ``text/over-data``       标注文字压在数据曲线、数据点或参考竖线上(文字自带不透明底框的除外)
 
     所有阈值按磅(pt)计,与绘图后端和屏幕像素比无关——同一张图在 macOS 与 Linux 上结论一致。
 
@@ -510,26 +531,51 @@ def check_layout(fig, contain: float = 0.60) -> list:
         if not ax.axison:
             continue
         own_texts = {id(t) for t in ax.texts}
+        leg = ax.get_legend()                        # 图例文字同样不许压框线和刻度
+        if leg is not None and leg.get_visible():
+            own_texts |= {id(t) for t in leg.get_texts()}
         ab = ax.bbox
-        bands = []
+        bands = []                                   # 框线本身 + 每根内向刻度线各一个矩形
         for side, spine in ax.spines.items():
             if not spine.get_visible() or side not in ("left", "right", "bottom", "top"):
                 continue
-            axis = ax.xaxis if side in ("bottom", "top") else ax.yaxis
-            tick_in = 0.0
-            if mpl.rcParams[f"{'x' if axis is ax.xaxis else 'y'}tick.direction"] in ("in", "inout"):
-                tick_in = mpl.rcParams[f"{'x' if axis is ax.xaxis else 'y'}tick.major.size"] / pt
+            is_x = side in ("bottom", "top")
+            axis = ax.xaxis if is_x else ax.yaxis
             lw = max(spine.get_linewidth() / pt / 2, 0.5)
             if side == "bottom":
-                bands.append((side, ab.x0, ab.y0 - lw, ab.x1, ab.y0 + lw + tick_in))
+                bands.append((side, ab.x0, ab.y0 - lw, ab.x1, ab.y0 + lw))
             elif side == "top":
-                bands.append((side, ab.x0, ab.y1 - lw - tick_in, ab.x1, ab.y1 + lw))
+                bands.append((side, ab.x0, ab.y1 - lw, ab.x1, ab.y1 + lw))
             elif side == "left":
-                bands.append((side, ab.x0 - lw, ab.y0, ab.x0 + lw + tick_in, ab.y1))
+                bands.append((side, ab.x0 - lw, ab.y0, ab.x0 + lw, ab.y1))
             else:
-                bands.append((side, ab.x1 - lw - tick_in, ab.y0, ab.x1 + lw, ab.y1))
+                bands.append((side, ab.x1 - lw, ab.y0, ab.x1 + lw, ab.y1))
+            key = "x" if is_x else "y"
+            if mpl.rcParams[f"{key}tick.direction"] not in ("in", "inout"):
+                continue
+            shown = mpl.rcParams[f"{key}tick.{side}"] if f"{key}tick.{side}" in mpl.rcParams else True
+            if not shown and side in ("top", "right"):
+                continue
+            tick_in = mpl.rcParams[f"{key}tick.major.size"] / pt
+            half = max(mpl.rcParams[f"{key}tick.major.width"] / pt / 2, 0.5)
+            lo, hi = sorted(ax.get_xlim() if is_x else ax.get_ylim())
+            for loc in axis.get_majorticklocs():
+                if not (lo <= loc <= hi):
+                    continue
+                if is_x:
+                    px = ax.get_xaxis_transform().transform((loc, 0))[0]
+                    if not math.isfinite(px):
+                        continue
+                    y0, y1 = (ab.y0, ab.y0 + tick_in) if side == "bottom" else (ab.y1 - tick_in, ab.y1)
+                    bands.append((side, px - half, y0, px + half, y1))
+                else:
+                    py = ax.get_yaxis_transform().transform((0, loc))[1]
+                    if not math.isfinite(py):
+                        continue
+                    x0, x1 = (ab.x0, ab.x0 + tick_in) if side == "left" else (ab.x1 - tick_in, ab.x1)
+                    bands.append((side, x0, py - half, x1, py + half))
         for t, s, b in texts:
-            if id(t) not in own_texts or getattr(t, "axes", None) is not ax:
+            if id(t) not in own_texts:
                 continue
             inner = b.padded(-0.5 / pt)
             for side, x0, y0, x1, y1 in bands:
@@ -540,6 +586,72 @@ def check_layout(fig, contain: float = 0.60) -> list:
                         fixes=["把标注往坐标区内挪,离框线留出刻度长度以上的空白",
                                "放宽坐标范围给标注腾位置", "改放在数据曲线旁的空白处"]))
                     break
+
+    # 10) 标注压数据:ax.text/annotate 的文字框里穿过了数据线、数据点或 vlines/hlines 画的参考线
+    from matplotlib.collections import LineCollection
+
+    def _through(inner, xy, connect):
+        """xy(display 坐标)在 inner 里的长度(pt)与点数。"""
+        inside_len, pts = 0.0, 0
+        for x, y in xy:
+            if inner.x0 < x < inner.x1 and inner.y0 < y < inner.y1:
+                pts += 1
+        if connect:
+            for (x0, y0), (x1, y1) in zip(xy[:-1], xy[1:]):
+                seg = math.hypot(x1 - x0, y1 - y0)
+                if seg == 0 or max(x0, x1) < inner.x0 or min(x0, x1) > inner.x1 \
+                        or max(y0, y1) < inner.y0 or min(y0, y1) > inner.y1:
+                    continue
+                n = max(2, int(seg / 1.0))
+                for k in range(n):
+                    x, y = x0 + (x1 - x0) * (k + 0.5) / n, y0 + (y1 - y0) * (k + 0.5) / n
+                    if inner.x0 < x < inner.x1 and inner.y0 < y < inner.y1:
+                        inside_len += seg / n
+        return inside_len * pt, pts
+
+    for ax in axes_all:
+        own_texts = [t for t in ax.texts if t.get_visible() and t.get_text().strip()]
+        if not own_texts:
+            continue
+        clip = ax.bbox
+        series = []
+        for i, ln in enumerate(ax.get_lines()):
+            if not ln.get_visible() or len(ln.get_xydata()) < 1:
+                continue
+            xy = [(x, y) for x, y in ln.get_transform().transform(ln.get_xydata())
+                  if clip.x0 - 1 <= x <= clip.x1 + 1 and clip.y0 - 1 <= y <= clip.y1 + 1]
+            lab = ln.get_label()
+            name = lab if lab and not lab.startswith("_") else f"第 {i + 1} 条线({mpl.colors.to_hex(ln.get_color())})"
+            series.append((name, xy, ln.get_linestyle() not in ("None", " ", ""),
+                           ln.get_marker() not in (None, "None", " ", "", "none")))
+        for coll in ax.collections:
+            if isinstance(coll, LineCollection) and coll.get_visible():
+                tr = coll.get_transform()
+                for seg in coll.get_segments():
+                    if len(seg):
+                        series.append(("线段(vlines/LineCollection)", [tuple(p) for p in tr.transform(seg)], True, False))
+        for t in own_texts:
+            patch = t.get_bbox_patch()
+            if patch is not None and patch.get_visible() and patch.get_facecolor()[3] >= 0.9:
+                continue                          # 自带不透明底框,线在字下面被遮住,不算压字
+            b = t.get_window_extent(r)
+            inner = b.padded(-0.5 / pt)           # 字框自带少量留白,压进 0.5 pt 以上才算
+            if inner.width <= 0 or inner.height <= 0:
+                continue
+            hits = []
+            for name, xy, connect, marker in series:
+                length, pts = _through(inner, xy, connect)
+                if length > 1.0 or (marker and pts):
+                    hits.append((name, round(length, 1), pts))
+            if hits:
+                s = t.get_text().strip()
+                issues.append(Issue(
+                    "text/over-data", f"标注压在数据上: {s!r} × {', '.join(h[0] for h in hits[:3])}",
+                    subject={"text": s, "series": [h[0] for h in hits]},
+                    evidence={"hidden": [{"series": n, "line_pt": l, "points": k} for n, l, k in hits]},
+                    fixes=["把标注移到曲线旁的空白处(偏移从数据算,如峰顶上方)",
+                           "旋转的晶面/峰位标签放在参考线另一端或曲线上方",
+                           "放宽坐标范围或加大谱线间距,给标注腾出空白"]))
 
     # 5) 示意图几何检查:schemfig.canvas 会在 fig 上挂 _schem_check
     extra = getattr(fig, "_schem_check", None)

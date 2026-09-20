@@ -24,7 +24,7 @@ description: 以材料/化学顶刊（Nature、Science、JACS、Angew、Advanced
 - 数据在哪：用户给的文件（csv/xlsx/txt/仪器导出）→ 先读几行看清格式；只有描述 → 走示例数据模板路线（原则 4）。
 - 目标期刊与栏宽：用户说了就用；没说就默认 wiley 单栏（Angew/AM 是本领域最常见去向），并在交付说明里注明"换刊只改一个参数"。
 - 图型选择与该测量类型的画法惯例：**读 references/chart-types.md 里对应的小节**（XRD、XPS、Raman/FTIR、UV-Vis/Tauc、PL/TRPL、电化学、吸附等温线、TGA、活性与循环稳定性、DFT 能带等逐一有规范和代码要点）。
-- 要画的是流程图/技术路线图（节点 + 连线，常带泳道和阶段）：**读 references/schematic-figures.md「声明式流程图」**，写 JSON 规格交给 `schemfig.py flow` 排版布线，**不写坐标**。
+- 要画的是流程图/技术路线图（节点 + 连线，常带泳道和阶段）：**读 references/schematic-figures.md「声明式流程图」**，写 JSON 规格交给 `schemfig.py flow` 排版布线，**不写坐标**；`size.max_width` 写成品宽度（用户给的版心/栏宽），不许调大或出图后缩放。
 - 要画的是机理示意、含数据 panel 的方法图（自由构图）：读同一份文档的手排技法，用 scripts/schemfig.py 组件库。
 - 期刊详细规格（栏宽、字号、DPI、TOC 图尺寸）：需要时查 references/journal-specs.md。
 - 配色与风格细节：需要时查 references/color-and-style.md。
@@ -50,9 +50,9 @@ figures/
 
 ### 第 3 步：渲染并亲眼检查（必做）
 
-跑脚本:`pf.export`/`sf.export` 导出前会自动跑 `pf.check_layout(fig)` 几何体检,查文字互撞、文字出图、数据坐标文字出轴、标注压在坐标轴框线或刻度上、文字跨框线、元素骑在容器框线上、插图盖住数据、箭头穿过元素或压过文字(含数据图里 annotate 的箭头)、字号低于底线(印刷 5 pt;图幅是 TOC 尺寸时 8 pt);声明式流程图还查连线叠在同一条通道上、标签放不下、连线交叉。**有 error 级诊断默认直接拒绝导出**(strict=True;阈值按磅计,macOS 与 Linux 上结论一致),诊断写进 `<图名>.check.json`。每条诊断带 `code`(如 `text/overlap`)、`subject`(出问题的对象)、`evidence`(实测数值)和 `fixes`(可选修法),代码表见 references/schematic-figures.md「体检诊断」。修复纪律:
+跑脚本:`pf.export`/`sf.export` 导出前会自动跑 `pf.check_layout(fig)` 几何体检,查文字互撞、文字出图、数据坐标文字出轴、标注压在坐标轴框线或刻度上、标注压在数据曲线上、文字跨框线、元素骑在容器框线上、插图盖住数据、箭头穿过元素或压过文字(含数据图里 annotate 的箭头)、字号低于底线(印刷 5 pt;图幅是 TOC 尺寸时 8 pt);声明式流程图还查连线叠在同一条通道上、标签放不下、连线交叉。**有 error 级诊断默认直接拒绝导出**(strict=True;阈值按磅计,macOS 与 Linux 上结论一致),诊断写进 `<图名>.check.json`。每条诊断带 `code`(如 `text/overlap`)、`subject`(出问题的对象)、`evidence`(实测数值)和 `fixes`(可选修法),代码表见 references/schematic-figures.md「体检诊断」。修复纪律:
 
-1. **按顺序修**:字号过小 → 出图/出轴 → 文字互撞、压轴、跨框线、骑线 → 插图盖数据 → 箭头穿框 → 通道重叠、箭头压字 → 标签放不下 → 交叉(warning,不阻断)。前面的问题会连带制造后面的问题,每修一轮重跑一次。
+1. **按顺序修**:字号过小 → 出图/出轴 → 文字互撞、压轴、压数据、跨框线、骑线 → 插图盖数据 → 箭头穿框 → 通道重叠、箭头压字 → 标签放不下 → 交叉(warning,不阻断)。前面的问题会连带制造后面的问题,每修一轮重跑一次。
 2. **对症改**:只改诊断点名的对象,从 `fixes` 里选修法,拿 `evidence` 的数值判断有没有变好。
 3. **会停**:连续两轮告警数没有下降就停下,在交付说明里如实列出剩下的诊断,不要无限微调。
 4. **不删信息换通过**:物理量、单位、峰位标注、连线标签是内容,不是排版余量——先挪位置,再调间距,最后才精简措辞。

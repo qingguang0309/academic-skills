@@ -44,7 +44,7 @@ sf.export(fig, "figures/roadmap")               # 体检把布线诊断与文字
 | `edges[]` | `from`、`to`、`label`、`accent`（默认 `spine` 灰）、`style`（`"solid"` / `"dashed"`） |
 | `accents` | 自定义强调色 `{"red": ["#FFFFFF", "#94070A"]}`（浅色填充，深色描边） |
 | `style` | `font`、`label_font`、`header_font`、`node_max_w`、`pad`、`col_gap`、`lane_gap`、`track`、`corner`（默认 0 直角）、`node_lw`、`edge_lw`、`margin` |
-| `size` | `max_width` / `max_height`（英寸），排版超出报 `flow/too-large` |
+| `size` | `max_width` / `max_height`（英寸）= **成品尺寸**（栏宽、Word 版心、幻灯内容区）。超出时引擎先自动收窄节点换行宽度和间隙（回执 `autofit` 列出调整），仍放不下才报 `flow/too-large` |
 
 未知字段、重复 id、连到不存在的节点、两个节点放进同一格都会被拦下（`spec/*`，退出码 2）。
 
@@ -87,8 +87,11 @@ sf.export(fig, "figures/roadmap")               # 体检把布线诊断与文字
 - **连线标签是语义数据**：写动作、物理量或条件（"预测能垒""残差反馈"），不写整句。
   修布局时先换列、换泳道、调 `style.col_gap` / `lane_gap`，**不许删标签换通过**。
 - **交叉（`edge/crossing`，warning）先试交换泳道顺序**；确实避不开就保留，并在交付说明里一句话说明。
-- 上屏用（PPT）时 `style.font` 取 16 左右，并用 `size.max_width` 控制在幻灯内容区宽度以内；
-  进论文时按栏宽设 `size.max_width`，字号用 `scale_check` 核算。
+- **`size` 按成品尺寸写，一次写对，不许为了通过体检调大，也不许出大图再在 Word/PPT 里缩放。**
+  缩放会让字号、线宽全部偏离设计值，"按最终尺寸出图"就失效了。用户说了版心、栏宽或幻灯内容区，
+  `size.max_width` 就等于它（16 cm 版心 → 6.3 in）；没说就按目标期刊栏宽或幻灯内容区宽度。
+- 上屏用（PPT）时 `style.font` 取 16 左右；进论文或 Word 时字号取 9–10.5，放不下先让引擎自动收窄，
+  再精简措辞，最后才减字号（不低于 8 pt）。
 
 ## 核心技法（按重要性排序）
 
@@ -188,13 +191,14 @@ A4 版心 150 mm ≈ 51%，14.5 pt → 7.4 pt，10.5 pt → 5.3 pt），确认�
 | code | 含义 | 常用修法 |
 |---|---|---|
 | `spec/*` | 规格写错：未知字段、重复 id、连到不存在的节点、同一格两个节点、未知泳道或强调色、自环 | 照诊断改规格 |
-| `flow/too-large` | 排版尺寸超出 `size` 限制 | 减小 `node_max_w` 让文字换行、缩间隙或字号、长主线拆成两条泳道 |
+| `flow/too-large` | 自动收窄后仍超出 `size` 限制 | 精简节点文字、适度减小字号、长主线拆成两条泳道或改 TB;**不许调大 `size`** |
 | `flow/too-many-emphasis`（warning） | 重心节点超过 2 个 | 只保留全图重心 |
 | `text/too-small` | 字号低于底线:印刷 5 pt;图幅是 TOC 尺寸(ACS 3.25×1.75 in、RSC 8×4 cm、Wiley 55×50 mm)时 8 pt | 加大字号;TOC 删减次要文字,不靠缩字塞内容 |
 | `text/out-of-figure` | 文字出画布 | 移回画布内、加大画布或边距 |
 | `text/out-of-axes` | 数据坐标标注飘出轴外 | 按数据范围重算坐标、放宽 xlim/ylim |
 | `text/overlap` | 两段文字互撞(相交超过 1 pt) | 移动其一、拉开间距、精简措辞 |
-| `text/crosses-axis` | 标注压在坐标轴框线或内向刻度上 | 往坐标区内挪、放宽坐标范围 |
+| `text/crosses-axis` | 标注或图例文字压在坐标轴框线或内向刻度上 | 往坐标区内挪、放宽坐标范围 |
+| `text/over-data` | 标注压在数据曲线、数据点或 vlines 参考线上 | 挪到曲线旁空白处(偏移从数据算)、加大谱线间距、放宽坐标范围 |
 | `text/crosses-box` | 文字一半在框内一半在框外 | 用 `sf.text_box` 按实测尺寸建框 |
 | `container/straddle-*` | 文字或元素骑在底带边线上 | 整体移进或移出底带 |
 | `inset/covers-data` | 插图(含刻度和轴标签)盖住主图的数据线或点 | 挪到数据空白区、放宽主图范围、缩小插图或改成独立 panel |

@@ -1173,10 +1173,15 @@ def _flow_geometry(norm, meas):
 
     # ---- 7. 标签:挑不与其它连线、节点相交的位置
     boxes = [rect(n) for n in nodes]
+    placed = []          # 已放好的标签矩形:相邻两个线旁标签贴在一起会读成一句话
 
     def blocked(cm, ck, e):
         hm, hk = e["lab_m"] / 2 + 0.03, e["lab_k"] / 2 + 0.02
         r0 = (cm - hm, ck - hk, cm + hm, ck + hk)
+        gap = 0.14
+        if any(p[0] - gap < r0[2] and p[2] + gap > r0[0] and p[1] - gap < r0[3] and p[3] + gap > r0[1]
+               for p in placed):
+            return True
         for other in edges:
             if other is e:
                 continue
@@ -1210,6 +1215,7 @@ def _flow_geometry(norm, meas):
                 opts.append((blocked(cm, mk, e), outside, cm))
             _, _, cm = min(opts, key=lambda o: (o[0], o[1]))
             e["label_at"] = (cm, mk)
+            placed.append((cm - e["lab_m"] / 2, mk - e["lab_k"] / 2, cm + e["lab_m"] / 2, mk + e["lab_k"] / 2))
             continue
         main = [s for s in ss if along_m(s) and abs(s[0][0] - s[1][0]) > 1e-9]
         if host[0] in ("g", "first"):
@@ -1236,6 +1242,8 @@ def _flow_geometry(norm, meas):
                 at = (cm, ck)
                 break
         e["label_at"] = at or ((seg[0][0] + seg[1][0]) / 2, (seg[0][1] + seg[1][1]) / 2)
+        cm, ck = e["label_at"]
+        placed.append((cm - e["lab_m"] / 2, ck - e["lab_k"] / 2, cm + e["lab_m"] / 2, ck + e["lab_k"] / 2))
 
     # 靠画布末端的线旁标签可能伸出去:把画布加宽到兜得住(只延长末端,不挪动已排好的坐标)
     reach = max((e["label_at"][0] + e["lab_m"] / 2 for e in edges if e.get("label_at")), default=0.0)
@@ -1283,6 +1291,54 @@ def _ink_for(fill):
     return "#FFFFFF" if 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.55 else "#0F172A"
 
 
+def _fit_flow(norm, size):
+    """排版;超出 size 时先自动收窄节点换行宽度,再收窄列/泳道间隙,字号不动。
+    返回 (geo, 实际采用的 norm, 调整记录)。每轮从原始 norm 深拷贝,避免上一轮的布线残留。"""
+    import copy
+
+    def layout(n):
+        meas = _Measurer()
+        try:
+            return _flow_geometry(n, meas)
+        finally:
+            meas.close()
+
+    def dims(g):
+        return (g["total_m"], g["total_k"]) if g["LR"] else (g["total_k"], g["total_m"])
+
+    def too_big(g):
+        w, h = dims(g)
+        return ((size.get("max_width") and w > size["max_width"] + 1e-6)
+                or (size.get("max_height") and h > size["max_height"] + 1e-6))
+
+    trial = copy.deepcopy(norm)
+    geo = layout(trial)
+    if not too_big(geo):
+        return geo, trial, []
+    base = norm["style"]
+    wrap, col_gap, lane_gap = base["node_max_w"], base["col_gap"], base["lane_gap"]
+    steps = []
+    for _ in range(8):
+        steps.append((wrap := max(0.8, wrap * 0.88), col_gap, lane_gap))
+    for _ in range(4):
+        steps.append((wrap, col_gap := max(0.3, col_gap * 0.85), lane_gap := max(0.22, lane_gap * 0.85)))
+    best = (geo, trial)
+    for wrap, col_gap, lane_gap in steps:
+        trial = copy.deepcopy(norm)
+        trial["style"].update(node_max_w=wrap, col_gap=col_gap, lane_gap=lane_gap)
+        scale = wrap / base["node_max_w"]
+        for n in trial["nodes"]:
+            n["max_w"] = max(0.8, n["max_w"] * scale)
+        geo = layout(trial)
+        best = (geo, trial)
+        if not too_big(geo):
+            break
+    geo, trial = best
+    notes = [f"{k} {base[k]:.2f}→{trial['style'][k]:.2f}"
+             for k in ("node_max_w", "col_gap", "lane_gap") if abs(trial["style"][k] - base[k]) > 1e-9]
+    return geo, trial, notes
+
+
 def flowchart(spec, style="paper", fonts=True):
     """声明式流程图 / 技术路线图:规格(dict 或 JSON 文件读出的对象)→ 排版 → 画布。
 
@@ -1307,27 +1363,28 @@ def flowchart(spec, style="paper", fonts=True):
     for key, val in list(S2.items()):
         if isinstance(val, tuple) and len(val) == 2:
             S2[f"{key}__solid"] = (val[1], val[1])
+    size = norm["size"]
+    geo, norm, autofit = _fit_flow(norm, size)
     st = norm["style"]
-    meas = _Measurer()
-    try:
-        geo = _flow_geometry(norm, meas)
-    finally:
-        meas.close()
     issues += geo["issues"]
     LR = geo["LR"]
     W, H = (geo["total_m"], geo["total_k"]) if LR else (geo["total_k"], geo["total_m"])
-    size = norm["size"]
     over = {k: round(v, 2) for k, v, lim in (("width_in", W, size.get("max_width")),
                                              ("height_in", H, size.get("max_height")))
             if lim and v > lim + 1e-6}
     if over:
         issues.append(Issue(
-            "flow/too-large", f"排版需要 {W:.2f}×{H:.2f} in,超出 size 限制", subject="size",
-            evidence={"needed": over, "limit": {k: size[k] for k in _SIZE_KEYS & set(size)}},
-            fixes=["减小 style.node_max_w,让节点文字换行", "减小 style.col_gap / lane_gap",
-                   "减小 style.font", "把一条长主线拆成两行泳道"]))
+            "flow/too-large",
+            f"排版需要 {W:.2f}×{H:.2f} in,超出 size 限制(已自动收窄换行宽度与间隙仍放不下)",
+            subject="size",
+            evidence={"needed": over, "limit": {k: size[k] for k in _SIZE_KEYS & set(size)},
+                      "autofit": autofit},
+            fixes=["size 是成品尺寸(版心、栏宽、幻灯内容区),不许调大,也不许出大图再缩放",
+                   "精简节点文字或改用 sub 放第二行", "适度减小 style.font(不低于成品可读字号)",
+                   "把一条长主线拆成两行泳道,或改用 direction=TB"]))
 
     fig = canvas(W, H, S2)
+    fig._schem_flow_autofit = autofit
 
     def P(m, k):
         x, y = (m, k) if LR else (k, m)
@@ -1378,7 +1435,7 @@ def flowchart(spec, style="paper", fonts=True):
                         own_texts=own)
 
     fig._schem_flow_issues = issues
-    return fig, dict(nodes=els, issues=issues, size_in=(W, H), direction=norm["direction"])
+    return fig, dict(nodes=els, issues=issues, size_in=(W, H), direction=norm["direction"], autofit=autofit)
 
 
 # ================================================================ 命令行
@@ -1399,6 +1456,8 @@ def _emit(receipt, as_json, code):
         mark = "通过" if rec["errors"] == 0 else "未通过"
         print(f"[{rec['style']}] {mark}:{rec['size_in'][0]}×{rec['size_in'][1]} in,"
               f"{rec['errors']} error,{rec['warnings']} warning")
+        if rec.get("autofit"):
+            print("  为放进 size 限制自动调整: " + ", ".join(rec["autofit"]))
         for out in rec.get("outputs", []):
             print(f"  输出 {out}")
     for item in receipt.get("issues", []):
@@ -1454,6 +1513,7 @@ def _main(argv=None):
             issues = _collect_issues(fig)
         errors = [i for i in issues if i.severity == "error"]
         rec = dict(style=name, size_in=[round(v, 2) for v in info["size_in"]], errors=len(errors),
+                   autofit=info.get("autofit", []),
                    warnings=len(issues) - len(errors), issues=[i.to_dict() for i in issues], outputs=[])
         if not args.check:
             stem = args.out if len(styles) == 1 else f"{args.out}-{name}"
