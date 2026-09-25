@@ -1,0 +1,21 @@
+% 示例:dft-ml_ai-draft.tex 按 paper-polish 去 AI 味流程改写后的版本。原稿缺的细节一律写成 [请确认: …],不替作者编。
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+
+\begin{abstract}
+Screening perovskite oxides for the oxygen evolution reaction (OER) needs an activity descriptor that is cheaper than computing every adsorption energy with density functional theory (DFT). We trained a graph neural network on DFT adsorption energies of oxygen intermediates [请确认: 数据量与化学空间] and used it to test which electronic-structure quantity tracks the predicted activity. The model reproduces DFT adsorption energies to within [请确认: MAE, eV] on the test set. Across the predicted trend, the O 2p band center correlates with activity more closely than [请确认: 对比的描述符,如 d-band center 或 e_g 占据数].
+\end{abstract}
+
+\section{Introduction}
+Perovskite oxides are attractive OER catalysts because their A- and B-site composition can be tuned widely at low cost \cite{suntivich2011}. Their activity is usually rationalized through the adsorption energies of oxygen intermediates. The composition space is too large to screen experimentally, and computing these adsorption energies with DFT for every candidate is too expensive for large-scale screening. Existing descriptors each capture only part of the surface chemistry [请确认: 举一个具体失效的例子].
+
+Machine-learning models trained on DFT data can cover much larger chemical spaces at a fraction of the cost \cite{butler2018}. Most models reported so far, however, are tested on random splits, so it is unclear how well they transfer to compositions outside the training set. Here we combine DFT with a graph neural network and ask two questions: how accurately the network reproduces DFT adsorption energies, and which descriptor best explains the resulting activity trend.
+
+\section{Methods}
+DFT calculations were performed using VASP with the PAW method and the [请确认: 泛函] functional. A Hubbard U correction (DFT+U) was applied to the transition-metal $d$ states, with [请确认: 各元素 U_eff]. [请确认: 截断能、k 点网格、收敛判据.] A graph neural network was trained to predict adsorption energies; the dataset was split into training and test sets [请确认: 比例与划分方式].
+
+\section{Results and Discussion}
+On the test set the model reproduces the DFT adsorption energies (Figure~\ref{fig:parity}; [请确认: MAE 与基线模型的误差]). In the predicted activity trend, the O 2p band center is the strongest single descriptor [请确认: 相关系数或对比的描述符]. [请确认: 与已有方法的比较结果;若有分布外测试,在此给出.] This points to O 2p–metal hybridization, rather than [请确认: 被排除的因素], as the quantity to target when designing perovskite OER catalysts.
+
+\end{document}

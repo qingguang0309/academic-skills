@@ -16,3 +16,6 @@ academic-deck/
 
 # 评测运行目录(工作区、转录、重跑副本),只有 history.jsonl 入库
 evals/*/runs/
+
+# paper-polish 去 AI 味体检报告(运行时生成)
+*.deai.json

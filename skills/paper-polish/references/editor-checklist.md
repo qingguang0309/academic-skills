@@ -60,4 +60,4 @@
 - **冠词与可数性**：中国作者高频错误，a/an/the 与不可数名词。
 - **Figure/Table 引用规范**：Figure 1a、Fig. S3、Table 1 的格式与期刊要求一致；正文引用顺序与编号一致。
 - **句子信息结构**：主题在前、新信息在后；避免头重脚轻的长主语。
-- **AI 味**：见 deai-style-guide.md，最后统一过一遍。
+- **AI 味**：见 patterns.md（病灶目录）与对应的领域配置，`scripts/deai_lint.py` 体检，最后统一过一遍。

@@ -10,7 +10,7 @@
 |---|---|---|
 | [paper-figures](skills/paper-figures/) | ✅ 可用 | 顶刊标准论文绘图：Python/matplotlib 矢量出图，按期刊栏宽定尺寸，内置 XRD/XPS/Raman/电化学/吸附等温线等图型规范与色盲安全配色；方法示意图同样用 matplotlib（真实感合成 panel + 论文/汇报双风格）；流程图/技术路线图写声明式 JSON 规格，引擎按“泳道 × 列”网格排版并正交布线；导出前几何体检输出结构化诊断（code/证据/修法），按修复顺序修、两轮不降即停。交付可复现脚本 + PDF + PNG |
 | [paper-slides](skills/paper-slides/) | ✅ 可用 | 标准美观的学术汇报 PPT：pptxgenjs + slidekit.js 组件库，模型只组装组件不手拍坐标；中西文混排自动分字体，封面/目录/章节过渡/三线表/页码等中文学术惯例内建，5 套配色主题（含北大红 `pku` 主题：答辩版式——红带封面、章节号页眉、章节列表页、红带结束页）、中英双语；页题下结论条（关键数据标红加粗）、真上下标、每页有图（缺图报警，文献图须注来源）、全文不用卡片、正文 16–17.5 pt；fetchimg 按题目拉取 CC 许可真实网络配图（格式嗅探/转码/压缩/署名清洗，且 build 时检查全篇是否有真实素材、0 张即报警），自绘流程图/技术路线图写声明式 JSON 规格、由 paper-figures 的 schemfig 自动排版与正交布线，formula 把 LaTeX 方程渲染进页面（自动降级 LaTeX→mathtext）、算法块排伪代码，chart 出原生可编辑图表（饼图守三条判据否则强制换水平条），wordlint 按四档判定扫 AI 词汇与口号（白名单保护正常术语），页标题只点明主题、完成与计划用 status 标出【已实现】【拟开展】、图注用 evidence 分清实测与示意，标题过长、总结框重复、卡片套分类模板、大数字缺条件、答辩没讲困难与局限都在 build 时报警，填充率低于阈值即报警，aiimg 调 DashScope 出图模型生成概念示意图（目检回炉），组图先单张再 collage 确定性拼版，全部署名由 credits.json 机制自动落页；全片默认注入克制的放映切换效果。产出原生可编辑 pptx + 可复现脚本。示例见 [examples/bse-eds-report/slides](examples/bse-eds-report/slides/) |
-| [paper-polish](skills/paper-polish/) | ✅ 可用 | 顶刊编辑视角论文润色：整篇 30+ 条逐条修改意见（Major/Moderate/Minor 分级），每条用中文讲清为什么这样改；改语言不改科学，可疑科学表述单列"编辑提问"；系统性去 AI 味。内置去 AI 味特征清单、审稿维度清单、按 section 组织的顶刊句式库；产出润色报告 + 修改后全文（.tex/.docx 原格式回填） |
+| [paper-polish](skills/paper-polish/) | ✅ 可用 | 论文去 AI 味与润色（不是规避检测）。核心是去 AI 味：deai_lint.py 体检 LaTeX/Markdown 稿件——基于 Kobak et al. 2025 PubMed 超额词统计分档的词表、套话、无证据的强断言与无检验的 significant、生成残留与提示注入、引用键核对、节奏雷同，并按领域查专业细节（DFT+ML 期刊：泛函/U 值/k 点/数据划分/误差指标/基线/分布外测试；LLM agent 会议：拟人化、方差与种子、Limitations、模型版本）；只改被点名的句子，缺的细节写成 [请确认] 交给作者；guard.py 逐项对照改写前后的引用、公式、数字与结论力度，杜绝改着改着改错事实。辅助功能是编辑视角的语言与逻辑润色：Major/Moderate/Minor 分级意见，每条用中文讲清为什么，时态与 hedging 按证据等级校准，可疑科学表述单列"编辑提问"。附各期刊/会议 AI 使用披露要求与声明草稿；产出修改报告 + 修改后全文（.tex/.docx 原格式回填） |
 | [paper-word](skills/paper-word/) | ✅ 可用 | 学术 Word 文档风格规范：python-docx 脚本一键套版——页眉左侧北大校徽 + 右侧文档标题 + 北大红分隔线，页脚"第X页/共X页"页码域，全文各级标题（Title/Subtitle/Heading 1–9，所有级别）统一北大红（样式级 + 段落级双重兜底），正文宋体 + Times New Roman、标题微软雅黑 + Arial；技术文档强制参考文献 + 脚注，写作强调去 AI 味、结论先行、直接简洁。与 docx skill 配合：先生成内容再套版 |
 
 此外,仓库内置 **[paperflow](paperflow/)** —— 基于 LangGraph 的论文生成流水线:大纲之后**文献链与图表链并行**(按主题现场生成 matplotlib 图),引用经 Crossref/Semantic Scholar 真实性核验(自动剔除编造 DOI),再渲染进**标准 LaTeX 模板**(SCI 单栏投稿格式 / 北京大学 pkuthss 学位论文)并用 tectonic 编译 PDF,QA 不过自动修订。LLM 后端默认走**本机 claude CLI 登录态**(不需要 API key),端到端演示见 [examples/paperflow-demo](examples/paperflow-demo/)。
@@ -32,7 +32,7 @@ cp -r academic-skills/skills/paper-figures academic-skills/skills/paper-slides a
 
 或只装进某个项目：复制到项目的 `.claude/skills/` 下。
 
-运行时依赖：paper-figures 需要 Python + matplotlib；paper-slides 需要 Node.js（生成时 `npm install pptxgenjs`），视觉检查用 LibreOffice + poppler（`soffice`/`pdftoppm`，可选）；paper-word 需要 Python + python-docx。
+运行时依赖：paper-figures 需要 Python + matplotlib；paper-slides 需要 Node.js（生成时 `npm install pptxgenjs`），视觉检查用 LibreOffice + poppler（`soffice`/`pdftoppm`，可选）；paper-word 需要 Python + python-docx；paper-polish 的脚本只用 Python 标准库。
 
 也可以作为插件市场安装：
 
@@ -107,11 +107,18 @@ academic-skills/
 │   │       ├── collage.py        # 组图确定性拼版
 │   │       └── assets/           # 北大校徽（pku-seal.png / pku-logo.png，pku 主题用）
 │   ├── paper-polish/
-│   │   ├── SKILL.md              # 编辑视角润色流程（意见分级 + 去 AI 味 pass）
-│   │   └── references/
-│   │       ├── deai-style-guide.md # 去 AI 味特征清单与替换规则
-│   │       ├── editor-checklist.md # 按 section 的审稿维度清单
-│   │       └── phrasebank.md      # 顶刊句式库（按 section 组织）
+│   │   ├── SKILL.md              # 去 AI 味（核心）+ 语言与逻辑润色（辅助）流程
+│   │   ├── scripts/
+│   │   │   ├── deai_lint.py      # LaTeX/Markdown 体检（词表、断言—证据、领域细节、节奏）
+│   │   │   └── guard.py          # 改写前后对照（引用/公式/数字/结论力度）
+│   │   ├── data/lexicon.json     # 词表（Kobak et al. 2025 超额词分档）+ 模式
+│   │   ├── references/
+│   │   │   ├── patterns.md       # 去 AI 味病灶目录与改法
+│   │   │   ├── profile-dft-ml.md / profile-agent-conf.md # 两套领域必查清单
+│   │   │   ├── disclosure.md     # 各期刊/会议 AI 使用披露要求
+│   │   │   ├── editor-checklist.md # 按 section 的审稿维度清单
+│   │   │   └── phrasebank.md     # 顶刊句式库（按 section 组织）
+│   │   └── examples/             # AI 初稿与改写后示例
 │   └── paper-word/
 │       ├── SKILL.md              # Word 文档风格规范（版式 + 文风）
 │       ├── scripts/

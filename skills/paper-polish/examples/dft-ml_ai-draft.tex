@@ -1,0 +1,21 @@
+% 示例:一段典型的 AI 初稿(DFT + ML 期刊论文)。内容与数字为虚构,仅用于演示 deai_lint 与 guard。
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+
+\begin{abstract}
+In the rapidly evolving landscape of materials science, the discovery of efficient oxygen evolution catalysts plays a pivotal role in sustainable energy conversion. In this work, we delve into the intricate interplay between electronic structure and catalytic activity of perovskite oxides by leveraging density functional theory (DFT) calculations and machine learning. Our comprehensive framework achieves remarkable accuracy, underscoring its potential to revolutionize catalyst design. Notably, the model reveals that the O 2p band center serves as a key descriptor, paving the way for the rational design of next-generation catalysts.
+\end{abstract}
+
+\section{Introduction}
+Perovskite oxides have garnered significant attention in recent years due to their tunable composition, low cost, and remarkable stability \cite{suntivich2011}. It is worth noting that the adsorption energy of oxygen intermediates plays a crucial role in determining the catalytic activity. Furthermore, the vast chemical space of perovskites makes exhaustive experimental screening impractical. Moreover, conventional DFT calculations are computationally expensive for large-scale screening. Additionally, existing descriptors often fail to capture the multifaceted nature of surface reactivity. Overall, there is a pressing need for efficient and accurate approaches.
+
+Machine learning has emerged as a transformative tool in the realm of materials discovery, offering unprecedented opportunities to navigate vast chemical spaces \cite{butler2018}. Various models have been developed to predict a wide range of properties. However, their generalizability remains underexplored. In this work, we develop a robust, interpretable, and scalable framework that seamlessly integrates DFT and graph neural networks. Taken together, our approach not only accelerates screening but also provides valuable insights into the underlying mechanisms.
+
+\section{Methods}
+DFT calculations were performed using VASP with the PAW method. The Hubbard U correction (DFT+U) was applied to the transition-metal $d$ states. A graph neural network was trained to predict adsorption energies, and the dataset was split into training and test sets.
+
+\section{Results and Discussion}
+The model achieves DFT-level accuracy on the test set, as shown in Figure~\ref{fig:parity}. The predicted activity trend demonstrates that the O 2p band center is the dominant descriptor. Our model significantly outperforms previous approaches and generalizes to unseen chemistries. These findings highlight the importance of electronic-structure descriptors and shed light on the design principles of perovskite catalysts.
+
+\end{document}

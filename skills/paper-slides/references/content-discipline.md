@@ -6,7 +6,7 @@
 
 随手可用的检验：**这句话换到别人的课题里是否照样成立？** 成立，多半还太空泛——补上研究对象、方法、条件或证据，通常就自然了。"构建智能分析框架"放进任何课题都成立；"用化学位移和线宽约束谱峰拟合"只属于这个课题。
 
-论文的 AI 味主要在词汇（见 paper-polish 的 `references/deai-style-guide.md`，同仓库，词表可直接借用）；
+论文的 AI 味见 paper-polish 的 `references/patterns.md` 与 `scripts/deai_lint.py`（同仓库）；
 **幻灯的 AI 味主要在结构**——幻灯本来就短，词汇病灶不多，暴露破绽的是"每页都长得一样"。
 下面按幻灯特有的病灶组织，最后给一套"先审计后改写"的流程（方法借鉴
 [academic-humanizer](https://github.com/AIScientists-Dev/academic-humanizer) 的分层审计与 claim–evidence 纪律）。

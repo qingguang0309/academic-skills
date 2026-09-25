@@ -1,0 +1,20 @@
+% 示例:一段典型的 AI 初稿(LLM agent 会议论文)。内容与数字为虚构,仅用于演示 deai_lint 与 guard。
+\documentclass{article}
+\begin{document}
+
+\begin{abstract}
+Large language model (LLM) agents have shown remarkable capabilities across a diverse range of tasks. However, they often struggle with long-horizon planning in complex environments. In this paper, we introduce \textsc{ReflexPlan}, a novel framework that empowers agents to seamlessly reflect on past failures and refine their plans. Extensive experiments demonstrate that our approach achieves state-of-the-art performance, significantly outperforming existing baselines. Our work paves the way for truly autonomous, general-purpose agents.
+\end{abstract}
+
+\section{Introduction}
+In today's rapidly evolving AI landscape, LLM-based agents are poised to transform how we interact with software. Despite their impressive progress, current agents often fail on tasks that require many sequential decisions. We argue that this failure stems from the agent's inability to understand why it failed. When the agent thinks about its previous trajectory, it can avoid repeating mistakes.
+
+To address this challenge, we propose a novel reflection mechanism. Our contributions are threefold: (1) we propose a novel memory module; (2) we design a novel planner that leverages reflective feedback; (3) we conduct comprehensive experiments on three benchmarks. To the best of our knowledge, we are the first to combine reflection and planning in a unified framework. Our agent truly understands the structure of the task and achieves human-level performance on WebArena.
+
+\section{Experiments}
+We evaluate \textsc{ReflexPlan} with GPT-4o and Llama-3 on WebArena, ALFWorld, and ScienceWorld. Our method achieves 52.3\% success on WebArena, compared with 41.2\% for ReAct \cite{yao2023react}. These results underscore the effectiveness of reflective planning and highlight its potential for real-world deployment.
+
+\section{Conclusion}
+We presented \textsc{ReflexPlan}, a groundbreaking framework for reflective planning. Our results showcase the pivotal role of reflection in agent design.
+
+\end{document}

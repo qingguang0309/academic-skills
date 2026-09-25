@@ -1,0 +1,750 @@
+{
+ "_doc": "paper-polish 去 AI 味词表。excess:Kobak et al. 2025(Sci. Adv. 11:eadt3813,数据 MIT 许可,github.com/berenslab/llm-excess-vocab)PubMed 摘要中 2024 年相对 2021–22 外推值的超额比例 ratio,按词族归并。tier:marker=单次出现即提示;density=同段 >=2 个超额词或全文每千词 >=3 个才提示。phrases/residue/claims 为正则,忽略大小写。whitelist 中的术语永不提示。所有词表项都是提示,不是判决:判据是删掉它句子丢不丢信息。",
+ "excess": [
+  {
+   "lemma": "delve",
+   "forms": [
+    "delve",
+    "delves",
+    "delved",
+    "delving"
+   ],
+   "tier": "marker",
+   "ratio": 28.18
+  },
+  {
+   "lemma": "underscore",
+   "forms": [
+    "underscore",
+    "underscores",
+    "underscored",
+    "underscoring"
+   ],
+   "tier": "marker",
+   "ratio": 13.78
+  },
+  {
+   "lemma": "showcase",
+   "forms": [
+    "showcase",
+    "showcases",
+    "showcased",
+    "showcasing"
+   ],
+   "tier": "marker",
+   "ratio": 10.7
+  },
+  {
+   "lemma": "meticulous",
+   "forms": [
+    "meticulous",
+    "meticulously"
+   ],
+   "tier": "marker",
+   "ratio": 10.47
+  },
+  {
+   "lemma": "intricate",
+   "forms": [
+    "intricate",
+    "intricately",
+    "intricacies"
+   ],
+   "tier": "marker",
+   "ratio": 7.65
+  },
+  {
+   "lemma": "realm",
+   "forms": [
+    "realm",
+    "realms"
+   ],
+   "tier": "marker",
+   "ratio": 4.97
+  },
+  {
+   "lemma": "commendable",
+   "forms": [
+    "commendable"
+   ],
+   "tier": "marker",
+   "ratio": 6.82
+  },
+  {
+   "lemma": "garner",
+   "forms": [
+    "garnered",
+    "garnering"
+   ],
+   "tier": "marker",
+   "ratio": 5.28
+  },
+  {
+   "lemma": "excel",
+   "forms": [
+    "excels"
+   ],
+   "tier": "marker",
+   "ratio": 5.87
+  },
+  {
+   "lemma": "grapple",
+   "forms": [
+    "grappling"
+   ],
+   "tier": "marker",
+   "ratio": 4.91
+  },
+  {
+   "lemma": "groundbreaking",
+   "forms": [
+    "groundbreaking"
+   ],
+   "tier": "marker",
+   "ratio": 4.87
+  },
+  {
+   "lemma": "revolutionize",
+   "forms": [
+    "revolutionize",
+    "revolutionizing"
+   ],
+   "tier": "marker",
+   "ratio": 4.07
+  },
+  {
+   "lemma": "renowned",
+   "forms": [
+    "renowned"
+   ],
+   "tier": "marker",
+   "ratio": 4.91
+  },
+  {
+   "lemma": "formidable",
+   "forms": [
+    "formidable"
+   ],
+   "tier": "marker",
+   "ratio": 3.9
+  },
+  {
+   "lemma": "pivotal",
+   "forms": [
+    "pivotal"
+   ],
+   "tier": "marker",
+   "ratio": 3.06
+  },
+  {
+   "lemma": "seamless",
+   "forms": [
+    "seamless",
+    "seamlessly"
+   ],
+   "tier": "marker",
+   "ratio": 3.08
+  },
+  {
+   "lemma": "unveil",
+   "forms": [
+    "unveil",
+    "unveils",
+    "unveiled",
+    "unveiling"
+   ],
+   "tier": "marker",
+   "ratio": 3.41
+  },
+  {
+   "lemma": "transformative",
+   "forms": [
+    "transformative"
+   ],
+   "tier": "marker",
+   "ratio": 2.97
+  },
+  {
+   "lemma": "unparalleled",
+   "forms": [
+    "unparalleled"
+   ],
+   "tier": "marker",
+   "ratio": 1.8
+  },
+  {
+   "lemma": "uncharted",
+   "forms": [
+    "uncharted"
+   ],
+   "tier": "marker",
+   "ratio": 2.35
+  },
+  {
+   "lemma": "burgeoning",
+   "forms": [
+    "burgeoning"
+   ],
+   "tier": "marker",
+   "ratio": 2.32
+  },
+  {
+   "lemma": "interconnectedness",
+   "forms": [
+    "interconnectedness"
+   ],
+   "tier": "marker",
+   "ratio": 2.69
+  },
+  {
+   "lemma": "tapestry",
+   "forms": [
+    "tapestry"
+   ],
+   "tier": "marker",
+   "ratio": null
+  },
+  {
+   "lemma": "testament",
+   "forms": [
+    "testament"
+   ],
+   "tier": "marker",
+   "ratio": null
+  },
+  {
+   "lemma": "surpass",
+   "forms": [
+    "surpass",
+    "surpasses",
+    "surpassed",
+    "surpassing"
+   ],
+   "tier": "density",
+   "ratio": 7.09
+  },
+  {
+   "lemma": "encompass",
+   "forms": [
+    "encompass",
+    "encompasses",
+    "encompassed",
+    "encompassing"
+   ],
+   "tier": "density",
+   "ratio": 4.94
+  },
+  {
+   "lemma": "emphasize",
+   "forms": [
+    "emphasize",
+    "emphasizes",
+    "emphasizing",
+    "emphasises",
+    "emphasising"
+   ],
+   "tier": "density",
+   "ratio": 4.67
+  },
+  {
+   "lemma": "necessitate",
+   "forms": [
+    "necessitate",
+    "necessitates",
+    "necessitating"
+   ],
+   "tier": "density",
+   "ratio": 4.25
+  },
+  {
+   "lemma": "offer",
+   "forms": [
+    "offering",
+    "offers"
+   ],
+   "tier": "density",
+   "ratio": 4.25
+  },
+  {
+   "lemma": "foster",
+   "forms": [
+    "fostering",
+    "fosters"
+   ],
+   "tier": "density",
+   "ratio": 3.12
+  },
+  {
+   "lemma": "leverage",
+   "forms": [
+    "leverages",
+    "leveraging"
+   ],
+   "tier": "density",
+   "ratio": 3.08
+  },
+  {
+   "lemma": "harness",
+   "forms": [
+    "harness",
+    "harnesses",
+    "harnessing"
+   ],
+   "tier": "density",
+   "ratio": 2.8
+  },
+  {
+   "lemma": "advancement",
+   "forms": [
+    "advancement",
+    "advancements"
+   ],
+   "tier": "density",
+   "ratio": 3.61
+  },
+  {
+   "lemma": "notable",
+   "forms": [
+    "notable",
+    "notably",
+    "noteworthy"
+   ],
+   "tier": "density",
+   "ratio": 3.42
+  },
+  {
+   "lemma": "highlight",
+   "forms": [
+    "highlighting",
+    "highlights"
+   ],
+   "tier": "density",
+   "ratio": 2.58
+  },
+  {
+   "lemma": "multifaceted",
+   "forms": [
+    "multifaceted"
+   ],
+   "tier": "density",
+   "ratio": 2.87
+  },
+  {
+   "lemma": "nuanced",
+   "forms": [
+    "nuanced",
+    "nuances"
+   ],
+   "tier": "density",
+   "ratio": 2.72
+  },
+  {
+   "lemma": "heightened",
+   "forms": [
+    "heightened"
+   ],
+   "tier": "density",
+   "ratio": 3.6
+  },
+  {
+   "lemma": "endeavor",
+   "forms": [
+    "endeavors",
+    "endeavours"
+   ],
+   "tier": "density",
+   "ratio": 3.65
+  },
+  {
+   "lemma": "bolster",
+   "forms": [
+    "bolster",
+    "bolstered",
+    "bolstering"
+   ],
+   "tier": "density",
+   "ratio": 3.76
+  },
+  {
+   "lemma": "crucial",
+   "forms": [
+    "crucial"
+   ],
+   "tier": "density",
+   "ratio": 2.11
+  },
+  {
+   "lemma": "insights",
+   "forms": [
+    "insights"
+   ],
+   "tier": "density",
+   "ratio": 2.04
+  },
+  {
+   "lemma": "pave",
+   "forms": [
+    "paving"
+   ],
+   "tier": "density",
+   "ratio": 2.39
+  },
+  {
+   "lemma": "avenue",
+   "forms": [
+    "avenue",
+    "avenues"
+   ],
+   "tier": "density",
+   "ratio": 2.35
+  },
+  {
+   "lemma": "elucidate",
+   "forms": [
+    "elucidate",
+    "elucidates",
+    "elucidating"
+   ],
+   "tier": "density",
+   "ratio": 2.29
+  },
+  {
+   "lemma": "exceptional",
+   "forms": [
+    "exceptional",
+    "exceptionally"
+   ],
+   "tier": "density",
+   "ratio": 2.8
+  },
+  {
+   "lemma": "streamline",
+   "forms": [
+    "streamline",
+    "streamlines",
+    "streamlined",
+    "streamlining"
+   ],
+   "tier": "density",
+   "ratio": 2.51
+  },
+  {
+   "lemma": "comprehensive",
+   "forms": [
+    "comprehensive"
+   ],
+   "tier": "density",
+   "ratio": 1.76
+  },
+  {
+   "lemma": "invaluable",
+   "forms": [
+    "invaluable"
+   ],
+   "tier": "density",
+   "ratio": 1.66
+  },
+  {
+   "lemma": "pioneering",
+   "forms": [
+    "pioneering"
+   ],
+   "tier": "density",
+   "ratio": 2.55
+  },
+  {
+   "lemma": "poised",
+   "forms": [
+    "poised"
+   ],
+   "tier": "density",
+   "ratio": 2.22
+  },
+  {
+   "lemma": "scrutinize",
+   "forms": [
+    "scrutinize",
+    "scrutinized",
+    "scrutinizing"
+   ],
+   "tier": "density",
+   "ratio": 3.21
+  },
+  {
+   "lemma": "pinpoint",
+   "forms": [
+    "pinpoint",
+    "pinpointed",
+    "pinpointing"
+   ],
+   "tier": "density",
+   "ratio": 3.16
+  },
+  {
+   "lemma": "additionally",
+   "forms": [
+    "additionally"
+   ],
+   "tier": "density",
+   "ratio": 1.91
+  },
+  {
+   "lemma": "enhance",
+   "forms": [
+    "enhance",
+    "enhances",
+    "enhancing",
+    "enhancements"
+   ],
+   "tier": "density",
+   "ratio": 2.79
+  },
+  {
+   "lemma": "utilize",
+   "forms": [
+    "utilizing",
+    "utilizes",
+    "utilized"
+   ],
+   "tier": "density",
+   "ratio": 2.09
+  },
+  {
+   "lemma": "facilitate",
+   "forms": [
+    "facilitates",
+    "facilitating",
+    "facilitated"
+   ],
+   "tier": "density",
+   "ratio": 2.16
+  },
+  {
+   "lemma": "capabilities",
+   "forms": [
+    "capabilities"
+   ],
+   "tier": "density",
+   "ratio": 1.85,
+   "note": "Geng & Trotta 2025:显眼的 marker 词被刻意回避后仍在上升的常用词"
+  },
+  {
+   "lemma": "valuable",
+   "forms": [
+    "valuable"
+   ],
+   "tier": "density",
+   "ratio": 2.01,
+   "note": "Geng & Trotta 2025:显眼的 marker 词被刻意回避后仍在上升的常用词"
+  },
+  {
+   "lemma": "effectively",
+   "forms": [
+    "effectively"
+   ],
+   "tier": "density",
+   "ratio": 1.31,
+   "note": "Geng & Trotta 2025:显眼的 marker 词被刻意回避后仍在上升的常用词"
+  },
+  {
+   "lemma": "innovative",
+   "forms": [
+    "innovative"
+   ],
+   "tier": "density",
+   "ratio": 1.88,
+   "note": "Geng & Trotta 2025:显眼的 marker 词被刻意回避后仍在上升的常用词"
+  },
+  {
+   "lemma": "versatile",
+   "forms": [
+    "versatile",
+    "versatility"
+   ],
+   "tier": "density",
+   "ratio": 1.87,
+   "note": "Geng & Trotta 2025:显眼的 marker 词被刻意回避后仍在上升的常用词"
+  },
+  {
+   "lemma": "underexplored",
+   "forms": [
+    "underexplored"
+   ],
+   "tier": "density",
+   "ratio": 2.72,
+   "note": "Geng & Trotta 2025:显眼的 marker 词被刻意回避后仍在上升的常用词"
+  }
+ ],
+ "phrases": [
+  {
+   "re": "\\bit is (?:worth|important to) not(?:e|ing)\\b|\\bit should be (?:noted|emphasized) that\\b|\\bnotably,",
+   "tier": "marker",
+   "why": "喊话式强调:靠副词告诉读者“这很重要”,信息没有增加",
+   "fix": "删掉引导语,直接陈述;真重要就把数字或机制写出来"
+  },
+  {
+   "re": "\\bplays? an? (?:crucial|pivotal|key|vital|critical|important|significant|central) role\\b",
+   "tier": "marker",
+   "why": "“扮演关键角色”只断言重要,不说怎么起作用",
+   "fix": "写出具体作用:the Ni sites lower the O* binding energy by 0.3 eV"
+  },
+  {
+   "re": "\\bin the (?:realm|field|domain|landscape) of\\b",
+   "tier": "marker",
+   "why": "空壳介词短语",
+   "fix": "删掉,直接说对象"
+  },
+  {
+   "re": "\\bshed(?:s|ding)? (?:new )?light on\\b|\\bpaves? the way (?:for|to)\\b|\\bopens? (?:up )?new avenues?\\b|\\blays? the groundwork\\b",
+   "tier": "marker",
+   "why": "许愿式套话:承诺价值而不说具体后果",
+   "fix": "写实际贡献或删掉:this identifies which descriptor controls ..."
+  },
+  {
+   "re": "\\ba testament to\\b|\\bstands? as a\\b|\\bserves? as a (?:testament|reminder|cornerstone|bridge)\\b",
+   "tier": "marker",
+   "why": "修辞性“是……的证明/基石”",
+   "fix": "改成 is / shows,或删"
+  },
+  {
+   "re": "\\bnot only\\b[^.;]{3,120}\\bbut also\\b",
+   "tier": "density",
+   "why": "“不仅……而且……”对仗;一篇里出现多次就是 tic",
+   "fix": "拆成两个陈述句,或只保留一处真正需要递进的"
+  },
+  {
+   "re": "\\b(?:rapidly|ever)[- ](?:evolving|changing|growing)\\b|\\bin today's\\b|\\bin recent years,? (?:there has been|.{0,40}attracted)",
+   "tier": "marker",
+   "why": "空泛时代背景开场",
+   "fix": "开场直接进入本文的具体问题与已知数字"
+  },
+  {
+   "re": "\\bcannot be overstated\\b|\\bof paramount importance\\b|\\bparadigm shift\\b|\\bgame[- ]changer\\b",
+   "tier": "marker",
+   "why": "夸张措辞",
+   "fix": "删,或换成可核对的比较"
+  },
+  {
+   "re": "\\b(?:a )?(?:wide|broad|diverse) (?:range|array|variety|spectrum) of\\b|\\bvarious\\b",
+   "tier": "density",
+   "why": "“多种/各种”替代了具体数量",
+   "fix": "给数量或列出对象:five perovskite oxides"
+  },
+  {
+   "re": "\\b(?:overall|in summary|in conclusion|taken together|collectively|in essence),",
+   "tier": "density",
+   "why": "段尾自我总结;每段都这样收尾是 AI 节拍",
+   "fix": "删掉大部分;段落靠推进,不靠复述"
+  },
+  {
+   "re": "\\bthis (?:work|study|paper) (?:provides|offers|presents) (?:valuable|new|novel|important) insights?\\b|\\bvaluable insights?\\b",
+   "tier": "marker",
+   "why": "“提供了有价值的见解”没有内容",
+   "fix": "说出见解本身:the O 2p band center, not the d-band center, tracks activity"
+  },
+  {
+   "re": "\\b(?:holistic|synergistic|robust and scalable|scalable and robust)\\b",
+   "tier": "density",
+   "why": "堆砌的抽象形容词",
+   "fix": "换成可核对的属性或删"
+  },
+  {
+   "re": "\\bstands? out\\b",
+   "tier": "density",
+   "why": "口语化夸张",
+   "fix": "给出比较对象与数值"
+  },
+  {
+   "re": "\\b(?:extensive|comprehensive) (?:experiments|evaluations?|analyses|results) (?:demonstrate|show|confirm|validate)\\b",
+   "tier": "marker",
+   "why": "“大量实验表明”:用实验规模代替结论本身",
+   "fix": "直接给结果:on WebArena the success rate rises from 41.2% to 52.3%"
+  },
+  {
+   "re": "\\bour contributions are (?:two|three|four|five)fold\\b|\\bthe main contributions of this (?:work|paper) are\\b",
+   "tier": "density",
+   "why": "贡献清单的模板开场",
+   "fix": "直接列贡献;每条写成可核对的事实,不写 we propose a novel …"
+  },
+  {
+   "re": "\\bserves? as (?:an? )?(?:crucial|key|critical|important|vital|pivotal|powerful|promising|valuable)\\b",
+   "tier": "marker",
+   "why": "“serves as a key/powerful …”:用 serves as 绕开 is,再加一个空形容词",
+   "fix": "改成 is,并说清它具体做什么"
+  },
+  {
+   "re": "\\bserves? as\\b",
+   "tier": "density",
+   "why": "回避 is/are 的绕写",
+   "fix": "多数可直接改成 is / are"
+  }
+ ],
+ "residue": [
+  {
+   "re": "\\bas an ai\\b|\\bas a (?:large )?language model\\b|\\bi hope this helps\\b|\\bcertainly[!,]|\\bhere(?:'s| is) (?:a|an|the) (?:revised|improved|rewritten)\\b|\\blet me know if\\b",
+   "tier": "error",
+   "why": "对话残留:模型回复用户的话混进了正文",
+   "fix": "删除"
+  },
+  {
+   "re": "\\bknowledge cut-?off\\b|\\bas of my (?:last )?(?:update|training)\\b",
+   "tier": "error",
+   "why": "模型知识截止声明",
+   "fix": "删除"
+  },
+  {
+   "re": "oaicite|turn\\d+search\\d+|contentReference\\[|\\[cite:\\s*\\d+\\]|utm_source=(?:chatgpt|openai)",
+   "tier": "error",
+   "why": "生成工具泄漏的引用标记",
+   "fix": "换成真实 \\cite{} 并核对文献"
+  },
+  {
+   "re": "\\[(?:insert|citation needed|add (?:reference|citation)|todo|xx+)[^\\]]*\\]|\\bXX(?:\\.X+)?\\s*%|\\?\\?\\?",
+   "tier": "error",
+   "why": "未填的占位符",
+   "fix": "补上真实内容,或改成醒目的 [请确认] 待作者处理"
+  },
+  {
+   "re": "(?m)^\\s{0,3}#{1,6}\\s+\\S|\\*\\*[^*\\n]{2,80}\\*\\*",
+   "tier": "error",
+   "why": "LaTeX 正文里混进了 Markdown 标记",
+   "fix": "改成 \\section{} / \\textbf{},或删",
+   "tex_only": true
+  },
+  {
+   "re": "ignore (?:all )?(?:previous|prior|above) instructions|\\bas an? (?:reviewer|llm|language model),? (?:you|please)\\b|give (?:this paper )?(?:a )?(?:positive|high) (?:review|score)|do not highlight any negatives",
+   "tier": "error",
+   "why": "疑似藏给审稿 LLM 的提示注入(ICLR/ICML 2026 会直接拒稿)",
+   "fix": "删除;这类内容无论是否可见都不能出现在稿件里"
+  }
+ ],
+ "hedge_stack": {
+  "re": "\\b(?:may|might|could) (?:potentially|possibly|perhaps)\\b|\\b(?:potentially|possibly) (?:may|might|could)\\b|\\bit is (?:possible|plausible) that\\b[^.]{0,60}\\b(?:may|might|could)\\b",
+  "tier": "density",
+  "why": "叠加 hedging:两个不确定词表达一个不确定",
+  "fix": "只留一个:may / likely / suggests"
+ },
+ "claims": {
+  "strong_verbs": "\\b(?:demonstrat(?:e|es|ed|ing)|prov(?:e|es|ed|en)|confirm(?:s|ed)?|establish(?:es|ed)?|reveal(?:s|ed)?|guarantee(?:s|d)?)\\b",
+  "hype": "\\b(?:groundbreaking|revolutioni[sz](?:e|es|ing)|unprecedented|remarkabl[ey]|exceptional(?:ly)?|outstanding|superior|state-of-the-art|sota|breakthrough|first-ever|unparalleled|dramatic(?:ally)?)\\b",
+  "significance": "\\bsignificant(?:ly)?\\b",
+  "evidence": "\\\\(?:cite|citep|citet|ref|cref|Cref|autoref|eqref)\\{|\\[[CR]\\]|\\b(?:fig(?:ure)?s?|tables?|eqs?|equations?|sections?|appendix)\\.?\\s*~?\\\\?[\\dS]|\\d+(?:\\.\\d+)?\\s*(?:%|\\\\%|m?eV|K|GPa|MPa|Å|nm|mV|V|h|s|ms|fold|×|x\\b|kcal|kJ|points?|pp\\b)|\\d\\.\\d|\\bp\\s*[<=>]|confidence interval|\\bstd\\b|±|\\\\pm",
+  "stats": "\\bp\\s*[<=>]\\s*0?\\.\\d|\\bt-test|\\bwilcoxon|\\bmann-whitney|\\banova|\\bbootstrap|\\bconfidence interval|\\bstandard (?:deviation|error)|\\b95\\s*%|\\\\pm|±|\\bseeds?\\b"
+ },
+ "whitelist": [
+  "robust optimization",
+  "robustness",
+  "alignment",
+  "align",
+  "aligned",
+  "potential energy",
+  "enhanced sampling",
+  "machine-learned potential",
+  "interatomic potential",
+  "chemical potential",
+  "serves as a baseline",
+  "serve as baselines",
+  "role-playing",
+  "significant figures"
+ ]
+}

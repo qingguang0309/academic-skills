@@ -1,0 +1,23 @@
+% 示例:agent-conf_ai-draft.tex 按 paper-polish 去 AI 味流程改写后的版本。原稿缺的细节一律写成 [请确认: …],不替作者编。
+\documentclass{article}
+\begin{document}
+
+\begin{abstract}
+LLM agents still fail on long-horizon tasks, where a single invalid action early in a trajectory often goes unnoticed for many steps. We introduce \textsc{ReflexPlan}, which writes a short summary of each failed attempt into the agent's context and conditions the next plan on it. On WebArena, \textsc{ReflexPlan} raises the success rate from 41.2\% (ReAct) to 52.3\% [请确认: 骨干模型、种子数与标准差]. We report results on ALFWorld and ScienceWorld [请确认: 两个基准的数字] and discuss the cases where reflection does not help.
+\end{abstract}
+
+\section{Introduction}
+Current LLM agents often fail on tasks that require many sequential decisions [请确认: 引用一两个给出失败率的工作]. We hypothesize that these failures persist because the agent's context contains no record of why earlier attempts failed. When a summary of the failed trajectory is added to the context, the agent repeats the same invalid action less often [请确认: 对应的消融结果,如 Table 3].
+
+Our contributions are: (1) a memory module that stores natural-language summaries of failed attempts [请确认: 章节号]; (2) a planner that conditions each new plan on these summaries [请确认: 章节号]; (3) an evaluation on WebArena, ALFWorld, and ScienceWorld with ablations of both components. To our knowledge, earlier work has used reflection or explicit planning separately [请确认: 最接近的两三篇工作], but not the combination studied here. [请确认: 原稿称在 WebArena 上达到 human-level;论文给出的数字是 52.3\%,需说明与人类基线的比较口径,否则删去此说法.]
+
+\section{Experiments}
+We evaluate \textsc{ReflexPlan} with GPT-4o and Llama-3 [请确认: 模型快照、temperature、最大步数] on WebArena, ALFWorld, and ScienceWorld. On WebArena, our method reaches 52.3\% success, compared with 41.2\% for ReAct \cite{yao2023react}. [请确认: 这一差距在不同种子下是否稳定.]
+
+\section{Limitations}
+[请确认: 评测未覆盖的任务类型、反思失败的典型情形、每个任务额外消耗的 token 与花费.]
+
+\section{Conclusion}
+We presented \textsc{ReflexPlan}, which conditions an agent's next plan on summaries of its failed attempts. On WebArena this raises the success rate from 41.2\% to 52.3\%; [请确认: 消融中哪个组件贡献更大].
+
+\end{document}
