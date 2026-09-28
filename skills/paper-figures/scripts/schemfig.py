@@ -23,6 +23,13 @@
 
     # 或命令行:python3 schemfig.py flow roadmap.json -o figures/roadmap --style all
 
+照参考图重画(旧图、草图、截图):
+
+    python3 schemfig.py grid ref.png                 # 叠 figure 坐标网格,照着读位置
+    fig = sf.canvas_like("ref.png", 7.0, S)          # 按参考图宽高比建画布
+    sf.underlay(fig, alpha=0.3)                      # 描图底图;导出前 sf.remove_underlay(fig)
+    python3 schemfig.py compare ref.png out.png      # 参考 / 重建 / 叠加 三联对比
+
 体检结果是结构化诊断 Issue(code / subject / evidence / fixes),导出失败时写进
 <stem>.check.json;按 code 对症修复,连续两轮告警数不降就停下来如实报告。
 
@@ -484,6 +491,10 @@ def check(fig) -> list:
                 "arrow/over-text", f"箭头压过文字: {name} × {s!r}",
                 subject={"arrow": name, "text": s},
                 fixes=["移动被压的文字或标签", "调整连线路径或元素位置"]))
+    if any(getattr(ax, "_schem_underlay", False) for ax in fig.axes):
+        issues.append(Issue(
+            "reference/underlay", "描图底图还在画布上:交付的图里不能夹带参考原图",
+            subject="underlay", fixes=["描完调 sf.remove_underlay(fig) 再导出"]))
     issues += list(getattr(fig, "_schem_flow_issues", []))
     return issues
 
@@ -534,6 +545,145 @@ def export(fig, stem, dpi=300, formats=("png", "pdf"), strict=True, crops=True, 
         paths += cs
     return paths
 
+
+
+# ================================================================== 参考图重建
+# 用户给一张旧图、手绘草图、截图或构图草稿,要求"照着重画成可编辑的":
+#   grid_reference  给参考图叠 figure 坐标网格(原点左下,与 matplotlib 一致),照着网格读出每个元素的位置
+#   canvas_like     按参考图的宽高比建画布,位置换算不走样
+#   underlay        把参考图半透明垫在画布底下描图;忘了删就导出,体检报 error
+#   compare         重建结果与参考图并排 + 叠加对比,核对位置、比例、文字、连线走向
+
+def _pil_font(size):
+    from PIL import ImageFont
+    try:
+        return ImageFont.truetype(fm.findfont(fm.FontProperties(family="DejaVu Sans")), size)
+    except Exception:
+        return ImageFont.load_default()
+
+
+def _open_rgb(path):
+    from PIL import Image
+    im = Image.open(path)
+    if im.mode in ("RGBA", "LA", "P"):
+        bg = Image.new("RGB", im.size, (255, 255, 255))
+        im = im.convert("RGBA")
+        bg.paste(im, mask=im.split()[-1])
+        return bg
+    return im.convert("RGB")
+
+
+def grid_reference(src, out=None, step=0.05):
+    """在参考图上叠 figure 坐标网格:每 step 一条细线,每 0.1 一条粗线并标数值。
+    x 从左 0 到右 1,y 从下 0 到上 1(与 fig.text / text_box 的坐标一致)。
+    用 Read 打开网格图,就能直接读出每个框的中心与宽高(figure 坐标),不用凭感觉估。
+    返回 dict(path, size_px, aspect, suggested_in)。"""
+    from PIL import ImageDraw, ImageFont
+    im = _open_rgb(src)
+    W, H = im.size
+    scale = max(1.0, 1600 / max(W, H))          # 太小的草图先放大,网格数字才看得清
+    if scale > 1:
+        im = im.resize((int(W * scale), int(H * scale)))
+    w, h = im.size
+    pad_l, pad_b = 64, 40
+    from PIL import Image
+    board = Image.new("RGB", (w + pad_l + 10, h + pad_b + 10), (255, 255, 255))
+    board.paste(im, (pad_l, 10))
+    d = ImageDraw.Draw(board, "RGBA")
+    font = _pil_font(20)
+    n = int(round(1 / step))
+    for i in range(n + 1):
+        f = i * step
+        major = abs(f * 10 - round(f * 10)) < 1e-6
+        col = (220, 38, 38, 150) if major else (37, 99, 235, 70)
+        x = pad_l + f * w
+        y = 10 + (1 - f) * h
+        d.line([(x, 10), (x, 10 + h)], fill=col, width=2 if major else 1)
+        d.line([(pad_l, y), (pad_l + w, y)], fill=col, width=2 if major else 1)
+        if major:
+            d.text((x - 14, 10 + h + 8), f"{f:.1f}", fill=(185, 28, 28), font=font)
+            d.text((8, y - 11), f"{f:.1f}", fill=(185, 28, 28), font=font)
+    out = out or os.path.splitext(src)[0] + "_grid.png"
+    board.save(out)
+    aspect = W / H
+    return dict(path=out, size_px=(W, H), aspect=round(aspect, 4),
+                suggested_in=[(7.0, round(7.0 / aspect, 2)), (3.5, round(3.5 / aspect, 2))])
+
+
+def canvas_like(src, width_in, S):
+    """按参考图宽高比建画布(高 = 宽 / 宽高比),并记下参考图路径供 underlay / compare 使用。"""
+    im = _open_rgb(src)
+    W, H = im.size
+    fig = canvas(width_in, width_in * H / W, S)
+    fig._schem_reference = os.path.abspath(src)
+    return fig
+
+
+def underlay(fig, src=None, alpha=0.3):
+    """把参考图半透明铺满画布当描图底图(zorder 最低)。**只在搭建阶段用**:
+    底图还在时导出,体检报 reference/underlay 错误——交付的图里不能夹带原图。
+    返回底图坐标轴;描完调 remove_underlay(fig) 或 ax.remove()。"""
+    import numpy as np
+    src = src or getattr(fig, "_schem_reference", None)
+    if not src:
+        raise ValueError("underlay 需要参考图路径(或先用 canvas_like 建画布)")
+    ax = fig.add_axes([0, 0, 1, 1], zorder=-100)
+    ax.imshow(np.asarray(_open_rgb(src)), alpha=alpha, aspect="auto", extent=(0, 1, 0, 1))
+    ax.set_axis_off()
+    ax._schem_underlay = True
+    return ax
+
+
+def remove_underlay(fig):
+    for ax in list(fig.axes):
+        if getattr(ax, "_schem_underlay", False):
+            ax.remove()
+
+
+def compare(reference, rendered, out=None):
+    """重建结果与参考图对比:左参考、中重建、右半透明叠加(参考红、重建青,重合处发灰)。
+    两张图先统一到相同高度;宽高比差 3% 以上时在返回值和终端里提示。
+    返回 dict(path, aspect_ref, aspect_out, aspect_diff)。"""
+    from PIL import Image, ImageChops, ImageDraw, ImageOps
+    a, b = _open_rgb(reference), _open_rgb(rendered)
+    ar_a, ar_b = a.width / a.height, b.width / b.height
+    H = 700
+    a2 = a.resize((max(1, int(H * ar_a)), H))
+    b2 = b.resize((max(1, int(H * ar_b)), H))
+    b_on_a = b.resize(a2.size)
+    ga = ImageOps.grayscale(a2)
+    gb = ImageOps.grayscale(b_on_a)
+    # 叠加:参考图的深色部分染红,重建图的深色部分染青,两者都有的地方接近黑灰
+    inv_a, inv_b = ImageOps.invert(ga), ImageOps.invert(gb)
+    white = Image.new("L", a2.size, 255)
+    over = Image.merge("RGB", (ImageChops.subtract(white, inv_b), ImageChops.subtract(white, inv_a),
+                               ImageChops.subtract(white, inv_a)))
+    panels = (("reference", a2), ("rebuilt", b2), ("overlay: red = reference only, cyan = rebuilt only", over))
+    gap, title_h = 24, 34
+    font = _pil_font(24)
+    vertical = ar_a > 1.3                      # 宽图竖着排,否则三联横排会变成一长条
+    if vertical:
+        Wb = max(im.width for _, im in panels) + 2 * gap
+        board = Image.new("RGB", (Wb, 3 * (H + title_h + gap) + gap), (255, 255, 255))
+    else:
+        board = Image.new("RGB", (sum(im.width for _, im in panels) + 4 * gap, H + title_h + 2 * gap), (255, 255, 255))
+    d = ImageDraw.Draw(board)
+    x = y = gap
+    for title, im in panels:
+        d.text((x, y), title, fill=(60, 60, 60), font=font)
+        board.paste(im, (x, y + title_h))
+        d.rectangle([x - 1, y + title_h - 1, x + im.width, y + title_h + im.height], outline=(160, 160, 160))
+        if vertical:
+            y += im.height + title_h + gap
+        else:
+            x += im.width + gap
+    out = out or os.path.splitext(rendered)[0] + "_compare.png"
+    board.save(out)
+    diff = abs(ar_b - ar_a) / ar_a
+    if diff > 0.03:
+        print(f"[schemfig] 宽高比不一致:参考 {ar_a:.3f},重建 {ar_b:.3f}(差 {diff:.0%})——"
+              f"用 canvas_like() 按参考图比例建画布")
+    return dict(path=out, aspect_ref=round(ar_a, 4), aspect_out=round(ar_b, 4), aspect_diff=round(diff, 4))
 
 
 # ================================================================== 可编辑 PPTX 导出
@@ -1896,7 +2046,24 @@ def _main(argv=None):
     f.add_argument("--check", action="store_true", help="只排版和体检,不写图")
     f.add_argument("--json", action="store_true", help="输出机器可读的回执")
     f.add_argument("--no-crops", action="store_true", help="不生成局部放大块")
+    g = sub.add_parser("grid", help="给参考图叠 figure 坐标网格,照着读位置")
+    g.add_argument("image")
+    g.add_argument("-o", "--out")
+    g.add_argument("--step", type=float, default=0.05)
+    c = sub.add_parser("compare", help="重建结果与参考图并排 + 叠加对比")
+    c.add_argument("reference")
+    c.add_argument("rendered")
+    c.add_argument("-o", "--out")
     args = ap.parse_args(argv)
+    if args.cmd == "grid":
+        r = grid_reference(args.image, args.out, args.step)
+        print(f"[schemfig] 网格图: {r['path']};参考图 {r['size_px'][0]}×{r['size_px'][1]} px,宽高比 {r['aspect']}"
+              f";按此比例建画布,如 {r['suggested_in'][0][0]}×{r['suggested_in'][0][1]} in")
+        return 0
+    if args.cmd == "compare":
+        r = compare(args.reference, args.rendered, args.out)
+        print(f"[schemfig] 对比图: {r['path']}(宽高比 参考 {r['aspect_ref']} / 重建 {r['aspect_out']})")
+        return 0
     if not args.check and not args.out:
         ap.error("出图需要 -o/--out;只体检请加 --check")
     matplotlib.use("Agg")

@@ -184,6 +184,8 @@ class Issue(str):
 REPAIR_ORDER = [
     "spec/",                    # 声明式规格本身写错
     "flow/",                    # 画布尺寸、重心节点数量等整体约束
+    "reference/",               # 描图底图没删
+    "text/placeholder",         # 占位文字(Lorem ipsum、TITLE、XX%、待补充)
     "font/",                    # 缺字(方块)与字体回退:字体不对,后面量出来的尺寸都不准
     "text/too-small",
     "text/out-of-figure",
@@ -272,6 +274,8 @@ def _toc_kind(fig):
     return None
 
 
+PLACEHOLDER = re.compile(r"lorem ipsum|placeholder|\bTODO\b|\bTBD\b|\?\?\?|\bXX+(?:\.X+)?\s*%?|\[insert|待补充|待填|在此(?:输入|添加)|点击(?:输入|添加)|此处(?:填写|插入)", re.I)
+PLACEHOLDER_EXACT = {"LOGO", "TITLE", "SUBTITLE", "LABEL", "TEXT", "HEADING", "CAPTION", "标题", "副标题", "文本"}
 _MATH = re.compile(r"(?<!\\)\$.*?(?<!\\)\$", re.S)
 
 
@@ -357,6 +361,7 @@ def _check_layout(fig, contain: float = 0.60) -> list:
     4. ``text/crosses-box``      文字跨越图形框线(示意图高发:文字比框宽,溢出到框外)
        ``container/straddle-*``  元素骑在容器框线上(文字或实心框伸出底带/分区边线)
     5. 示意图几何检查(schemfig 注册的箭头穿过元素/压过文字、声明式流程图的布线诊断)
+    5a. ``text/placeholder``     占位文字(Lorem ipsum、TITLE、XX%、待补充……),多来自模板或生成的图像素材
     5b. ``font/missing-glyph``   缺字:标签里有字体不含的字符,渲染成方块 □(error)
         ``font/fallback``        要求的字体没装,退回 DejaVu Sans(warning)
     6. ``text/too-small``        字号低于底线(印刷 5 pt;图幅是 TOC 尺寸时 8 pt)
@@ -478,6 +483,13 @@ def _check_layout(fig, contain: float = 0.60) -> list:
                     f"元素框骑在容器框线上 (仅 {frac:.0%} 在容器内,约 x={pos[0]:.2f},y={pos[1]:.2f})",
                     subject=pos, evidence={"inside_fraction": round(frac, 2), "figure_xy": pos},
                     fixes=["把元素整体移进或移出容器底带", "加大容器底带"]))
+    # 5a) 占位文字:模板残留、生成图像素材自带的假字,出现就说明图没做完
+    for t, s, _ in texts:
+        if PLACEHOLDER.search(s) or s.strip().upper() in PLACEHOLDER_EXACT:
+            issues.append(Issue(
+                "text/placeholder", f"占位文字: {s[:30]!r}", subject=s,
+                fixes=["换成真实内容;来自生成的图像素材就重新生成或裁掉"]))
+
     # 5b) 字体:缺字会渲染成方块(□,俗称豆腐块);期刊字体没装会悄悄退回 DejaVu Sans
     issues += _font_issues([(t, s) for t, s, _ in texts])
 
@@ -722,6 +734,38 @@ def _check_layout(fig, contain: float = 0.60) -> list:
     if callable(extra):
         issues += [_as_issue(i) for i in extra()]
     return issues
+
+
+def text_inventory(fig) -> list[dict]:
+    """列出图上每一段可见文字(按从上到下、从左到右排序):内容、字号、所在位置(figure 坐标)。
+    渲染复查时逐行对照 PNG 读一遍——"每段文字都读得出、读得对"是体检替代不了的一步。"""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    orig = fig.canvas
+    FigureCanvasAgg(fig)
+    try:
+        fig.canvas.draw()
+        r = fig.canvas.get_renderer()
+        W, H = fig.bbox.width, fig.bbox.height
+        phantom = set()                   # 坐标范围外的幽灵刻度:不渲染,不列
+        for ax in fig.findobj(mpl.axes.Axes):
+            for axis, lim in ((ax.xaxis, sorted(ax.get_xlim())), (ax.yaxis, sorted(ax.get_ylim()))):
+                for tick in list(axis.get_major_ticks()) + list(axis.get_minor_ticks()):
+                    if not (lim[0] - 1e-12 <= tick.get_loc() <= lim[1] + 1e-12):
+                        phantom.update((tick.label1, tick.label2))
+        out = []
+        for t in fig.findobj(mpl.text.Text):
+            s = t.get_text().strip()
+            if not s or not t.get_visible() or t in phantom:
+                continue
+            b = t.get_window_extent(r)
+            if b.width <= 1:
+                continue
+            out.append({"text": s, "size_pt": round(float(t.get_fontsize()), 1),
+                        "x": round(float((b.x0 + b.x1) / 2 / W), 3), "y": round(float((b.y0 + b.y1) / 2 / H), 3)})
+        out.sort(key=lambda d: (-round(d["y"], 2), d["x"]))
+        return out
+    finally:
+        fig.set_canvas(orig)
 
 
 def grayscale(png_path: str) -> str:
