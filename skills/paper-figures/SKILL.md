@@ -50,9 +50,9 @@ figures/
 
 ### 第 3 步：渲染并亲眼检查（必做）
 
-跑脚本:`pf.export`/`sf.export` 导出前会自动跑 `pf.check_layout(fig)` 几何体检,查文字互撞、文字出图、数据坐标文字出轴、标注压在坐标轴框线或刻度上、标注压在数据曲线上、文字跨框线、元素骑在容器框线上、插图盖住数据、箭头穿过元素或压过文字(含数据图里 annotate 的箭头)、字号低于底线(印刷 5 pt;图幅是 TOC 尺寸时 8 pt);声明式流程图还查连线叠在同一条通道上、标签放不下、连线交叉。**有 error 级诊断默认直接拒绝导出**(strict=True;阈值按磅计,macOS 与 Linux 上结论一致),诊断写进 `<图名>.check.json`。每条诊断带 `code`(如 `text/overlap`)、`subject`(出问题的对象)、`evidence`(实测数值)和 `fixes`(可选修法),代码表见 references/schematic-figures.md「体检诊断」。修复纪律:
+跑脚本:`pf.export`/`sf.export` 导出前会自动跑 `pf.check_layout(fig)` 几何体检,查缺字（字体里没有的字符会渲染成方块 □）与期刊字体缺失后的回退、文字互撞、文字出图、数据坐标文字出轴、标注压在坐标轴框线或刻度上、标注压在数据曲线上、文字跨框线、元素骑在容器框线上、插图盖住数据、箭头穿过元素或压过文字(含数据图里 annotate 的箭头)、字号低于底线(印刷 5 pt;图幅是 TOC 尺寸时 8 pt);声明式流程图还查连线叠在同一条通道上、标签放不下、连线交叉。**有 error 级诊断默认直接拒绝导出**(strict=True;阈值按磅计,macOS 与 Linux 上结论一致),诊断写进 `<图名>.check.json`。每条诊断带 `code`(如 `text/overlap`)、`subject`(出问题的对象)、`evidence`(实测数值)和 `fixes`(可选修法),代码表见 references/schematic-figures.md「体检诊断」。修复纪律:
 
-1. **按顺序修**:字号过小 → 出图/出轴 → 文字互撞、压轴、压数据、跨框线、骑线 → 插图盖数据 → 箭头穿框 → 通道重叠、箭头压字 → 标签放不下 → 交叉(warning,不阻断)。前面的问题会连带制造后面的问题,每修一轮重跑一次。
+1. **按顺序修**:缺字与字体回退 → 字号过小 → 出图/出轴 → 文字互撞、压轴、压数据、跨框线、骑线 → 插图盖数据 → 箭头穿框 → 通道重叠、箭头压字 → 标签放不下 → 交叉(warning,不阻断)。前面的问题会连带制造后面的问题,每修一轮重跑一次。
 2. **对症改**:只改诊断点名的对象,从 `fixes` 里选修法,拿 `evidence` 的数值判断有没有变好。
 3. **会停**:连续两轮告警数没有下降就停下,在交付说明里如实列出剩下的诊断,不要无限微调。
 4. **不删信息换通过**:物理量、单位、峰位标注、连线标签是内容,不是排版余量——先挪位置,再调间距,最后才精简措辞。
@@ -81,13 +81,14 @@ figures/
 - 在对话里用中文简要说明：每张图的设计取舍（为什么选这个图型/配色/布局）、如何改数据复用脚本、换期刊要改哪个参数。若用了示例数据，显眼列出待替换清单。
 - 用户要求 TIFF 或特定 DPI 时按 journal-specs.md 的要求导出（`pf.export(fig, stem, formats=("pdf","png","tiff"))`）。
 - **图要插进 Word/PPT（申请书、报告）时，务必附一份 SVG**（formats 加 "svg"，导出时文字自动转路径）：Word 会把插入的位图在保存时压缩到 220 ppi，这是"图在 Word 里发糊"的根源；SVG 是矢量，Word 2016+ 直接插入、任意缩放不糊。同时提醒用户在 Word 首选项里关闭"压缩图片"。
+- **示意图、流程图要在 PPT 里继续改时，附一份可编辑 PPTX**（formats 加 "pptx"，需要 `pip install python-pptx`）：框、文字、连线都转成 PowerPoint 原生对象，能单独选中改字、改色、拖动，版式与 PDF 一致；图里嵌的数据 panel 作为图片放入。只支持 schemfig 画布，数据图的"修改"应当改脚本重跑。要在 Illustrator/Inkscape 里改字时导出 SVG 加 `svg_text=True`（保留真实文字，对方机器需有同款字体）。
 
 ## 常见情形处理
 
 - **仪器导出的脏数据**：XRD/XPS/电化学工作站导出的 txt 常带若干行元数据头。先 `Read` 文件看前 30 行，再用 `pandas.read_csv` 的 `skiprows`/`sep` 精确解析，不要盲猜。
 - **"帮我把这张图画得像 Origin"**：全框+内刻度就是 paperfig 的默认样式，不需要额外做什么；把用户在意的具体细节（刻度密度、图例位置）逐项对齐即可。
 - **审稿人批评图**：先把审稿意见逐条翻译成上面自检清单里的具体问题，诊断旧图，再重画。交付时写明每条意见对应改了什么。
-- **流程图/技术路线图（节点 + 连线）**：写声明式 JSON 规格，`python3 schemfig.py flow spec.json -o figures/roadmap --style all --json`（脚本里用 `fig, info = sf.flowchart(spec)` 再 `sf.export`）。节点进"泳道 × 列"网格，连线正交自动布线、不穿节点，模型只决定哪个节点放哪一格、谁连谁。规格字段与示例见 references/schematic-figures.md「声明式流程图」。
+- **流程图/技术路线图（节点 + 连线）**：写声明式 JSON 规格，`python3 schemfig.py flow spec.json -o figures/roadmap --style all --json`（要在 PPT 里改就加 `--formats png,pdf,pptx`；脚本里用 `fig, info = sf.flowchart(spec)` 再 `sf.export`）。节点进"泳道 × 列"网格，连线正交自动布线、不穿节点，模型只决定哪个节点放哪一格、谁连谁。规格字段与示例见 references/schematic-figures.md「声明式流程图」。
 - **方法示意图/机理图**：复杂示意图（多阶段 pipeline、含数据 panel、需要论文+汇报双风格）用 matplotlib + scripts/schemfig.py 画——全图坐标布局、真实感合成 panel、双风格字典，完整技法读 references/schematic-figures.md。**纪律：内容框一律 `sf.text_box`（先实测文字再配框，文字不可能溢出），框间连线一律 `sf.connect`（自动取框沿锚点+自动避障），背景底带传 `solid=False`；先画完所有框再画箭头，最后必须走 `sf.export`（体检拦截+局部放大块）。不要手拍框宽高、不要手拍箭头起止坐标——那正是“文字溢出框线、箭头被覆盖”两大历史顽疾的根源。**三五个框的轻量示意（能带对齐、简单流程）手写 SVG 也可以，字体字号规范照旧。复杂 3D 晶体结构/形貌仍建议用户用 VESTA/Blender 出素材，你负责排版组合与标注。
 - **中文图（学位论文/基金本子）**：正文字体换成宋体/黑体（macOS 上 `Songti SC`/`Heiti SC`），字号放大到 9–10.5 pt，栏宽按 A4 版心（约 150 mm）。其余规范不变。
 - **数据量极大**（如百万点的电化学循环数据）：先降采样或分段再画，矢量图里塞几十万个点会让 PDF 卡死排版系统；必要时该图层单独栅格化（`rasterized=True`）。

@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import math
+import re
 import string
 
 import matplotlib as mpl
@@ -183,6 +184,7 @@ class Issue(str):
 REPAIR_ORDER = [
     "spec/",                    # 声明式规格本身写错
     "flow/",                    # 画布尺寸、重心节点数量等整体约束
+    "font/",                    # 缺字(方块)与字体回退:字体不对,后面量出来的尺寸都不准
     "text/too-small",
     "text/out-of-figure",
     "text/out-of-axes",
@@ -270,6 +272,60 @@ def _toc_kind(fig):
     return None
 
 
+_MATH = re.compile(r"(?<!\\)\$.*?(?<!\\)\$", re.S)
+
+
+def _font_chain(prop):
+    """文字实际会用到的字体文件链(matplotlib 按字形逐个回退)。"""
+    from matplotlib import font_manager as fm
+    try:
+        return list(fm.fontManager._find_fonts_by_props(prop))
+    except Exception:                    # 旧版 matplotlib 没有回退链
+        return [fm.findfont(prop)]
+
+
+def _font_issues(texts):
+    """缺字与字体回退。只查正文字符;$…$ 数学公式由 mathtext 字体负责,不在此列。"""
+    from matplotlib import font_manager as fm
+    issues, charmaps, fallback = [], {}, {}
+    for t, s in texts:
+        plain = _MATH.sub("", s)
+        chars = {c for c in plain if not c.isspace() and ord(c) > 31}
+        if not chars:
+            continue
+        chain = _font_chain(t.get_fontproperties())
+        for path in chain:
+            if path not in charmaps:
+                try:
+                    charmaps[path] = set(fm.get_font(path).get_charmap())
+                except Exception:
+                    charmaps[path] = set()
+        missing = [c for c in dict.fromkeys(plain) if c in chars and not any(ord(c) in charmaps[p] for p in chain)]
+        if missing:
+            names = [fm.get_font(p).family_name for p in chain[:3]]
+            issues.append(Issue(
+                "font/missing-glyph", f"缺字:{''.join(missing)!r} 在所用字体里没有字形,会显示成方块 □({s[:20]!r})",
+                subject=s, evidence={"chars": missing, "fonts": names},
+                fixes=["中文标签先调 sf.setup_fonts() 或在 font.sans-serif 最前面加一款中文字体",
+                       "特殊符号改用 mathtext($\\alpha$、$\\AA$)或换成字体里有的字符"]))
+        prop = t.get_fontproperties()
+        fams = prop.get_family()
+        wanted = []
+        for f in fams:
+            wanted += list(mpl.rcParams.get(f"font.{f}", [])) if f in ("sans-serif", "serif", "monospace") else [f]
+        if wanted and chain:
+            primary = fm.get_font(chain[0]).family_name
+            if primary == "DejaVu Sans" and wanted[0] != "DejaVu Sans":
+                fallback.setdefault(wanted[0], []).append(s)
+    for want, ss in fallback.items():
+        issues.append(Issue(
+            "font/fallback", f"要求的字体 {want!r} 没装,{len(ss)} 段文字退回了 DejaVu Sans(期刊多要求 Arial/Helvetica)",
+            subject=ss[:5], severity="warning", evidence={"requested": want, "texts": len(ss)},
+            fixes=["安装 Arial(或 Liberation Sans 作为度量兼容替代)后重跑",
+                   "确实只能用 DejaVu Sans 时,在交付说明里注明字体与期刊要求不符"]))
+    return issues
+
+
 def check_layout(fig, contain: float = 0.60) -> list:
     """体检入口:固定用 Agg 画布、在 CHECK_DPI 下测量,再调用 _check_layout。
 
@@ -278,10 +334,13 @@ def check_layout(fig, contain: float = 0.60) -> list:
     统一在导出同级的分辨率上用 Agg 测量,量到的就是交付 PDF/PNG 的真实位置,在哪里体检结论都一样。"""
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     orig_canvas, orig_dpi = fig.canvas, fig.dpi
+    import warnings
     try:
         FigureCanvasAgg(fig)
         fig.dpi = CHECK_DPI
-        return _check_layout(fig, contain)
+        with warnings.catch_warnings():     # 缺字由 font/missing-glyph 结构化报告,不再刷屏
+            warnings.filterwarnings("ignore", message=r"Glyph \d+ .*missing from font")
+            return _check_layout(fig, contain)
     finally:
         if fig.dpi != orig_dpi:
             fig.dpi = orig_dpi
@@ -298,6 +357,8 @@ def _check_layout(fig, contain: float = 0.60) -> list:
     4. ``text/crosses-box``      文字跨越图形框线(示意图高发:文字比框宽,溢出到框外)
        ``container/straddle-*``  元素骑在容器框线上(文字或实心框伸出底带/分区边线)
     5. 示意图几何检查(schemfig 注册的箭头穿过元素/压过文字、声明式流程图的布线诊断)
+    5b. ``font/missing-glyph``   缺字:标签里有字体不含的字符,渲染成方块 □(error)
+        ``font/fallback``        要求的字体没装,退回 DejaVu Sans(warning)
     6. ``text/too-small``        字号低于底线(印刷 5 pt;图幅是 TOC 尺寸时 8 pt)
     7. ``arrow/over-text``       数据图里 annotate 画的箭头/标尺线压过别的文字
     8. ``inset/covers-data``     插图(含刻度与轴标签)盖住了主图的数据线或数据点
@@ -417,6 +478,9 @@ def _check_layout(fig, contain: float = 0.60) -> list:
                     f"元素框骑在容器框线上 (仅 {frac:.0%} 在容器内,约 x={pos[0]:.2f},y={pos[1]:.2f})",
                     subject=pos, evidence={"inside_fraction": round(frac, 2), "figure_xy": pos},
                     fixes=["把元素整体移进或移出容器底带", "加大容器底带"]))
+    # 5b) 字体:缺字会渲染成方块(□,俗称豆腐块);期刊字体没装会悄悄退回 DejaVu Sans
+    issues += _font_issues([(t, s) for t, s, _ in texts])
+
     # 6) 字号底线:图按最终尺寸建,fontsize 就是印刷磅值
     toc = _toc_kind(fig)
     floor = MIN_FONT_TOC_PT if toc else MIN_FONT_PT
@@ -669,11 +733,13 @@ def grayscale(png_path: str) -> str:
 
 
 def export(fig, stem: str, formats=("pdf", "png"), dpi: int = 600,
-           strict: bool = True, crops="auto", report: bool = True) -> list[str]:
+           strict: bool = True, crops="auto", report: bool = True, svg_text: bool = False) -> list[str]:
     """按最终尺寸导出。默认 PDF（投稿矢量图）+ PNG 600 dpi（预览/检查）。
     需要 TIFF 时在 formats 里加 'tiff'。故意不用 bbox_inches='tight'。
     图要插 Word/PPT 时在 formats 里加 'svg'（文字自动转路径,Word 2016+ 原生
-    支持矢量插入,任意缩放不糊;PNG 插 Word 会被默认压缩到 220 ppi）。
+    支持矢量插入,任意缩放不糊;PNG 插 Word 会被默认压缩到 220 ppi）。svg_text=True 时
+    SVG 保留真实文字,Illustrator/Inkscape 里能直接改字。示意图(schemfig 画布)还可加 'pptx',
+    导出框、文字、连线都能单独编辑的 PowerPoint;数据图不支持(数据图的"改"应当改脚本重跑)。
 
     strict=True（默认）：体检有 error 级诊断直接拒绝导出——图不许带着已知缺陷
     交出去。按 REPAIR_ORDER 逐条修复后重跑；确认是误报才可 strict=False，且要在
@@ -695,9 +761,14 @@ def export(fig, stem: str, formats=("pdf", "png"), dpi: int = 600,
     for ext in formats:
         path = f"{stem}.{ext}"
         if ext == "svg":
-            # Word/PPT 用矢量:文字转路径,不依赖对方机器字体,缩放永远清晰
-            with mpl.rc_context({"svg.fonttype": "path"}):
+            # Word/PPT 用矢量:文字转路径,不依赖对方机器字体,缩放永远清晰;svg_text 保留可编辑文字
+            with mpl.rc_context({"svg.fonttype": "none" if svg_text else "path"}):
                 fig.savefig(path)
+        elif ext == "pptx":
+            hook = getattr(fig, "_schem_pptx", None)
+            if hook is None:
+                raise ValueError("pptx 只支持 schemfig 画布(示意图/流程图);数据图请导出 pdf/svg")
+            hook(path)
         else:
             fig.savefig(path, dpi=dpi)
         paths.append(path)

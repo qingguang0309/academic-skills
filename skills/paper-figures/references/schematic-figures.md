@@ -24,6 +24,7 @@ panel**（示意图里放的是算出来的图不是画出来的框）、字体�
 ```bash
 python3 schemfig.py flow roadmap.json -o figures/roadmap --style all --json   # paper + dark 两版
 python3 schemfig.py flow roadmap.json --check --json                          # 只排版体检,不写图
+python3 schemfig.py flow roadmap.json -o figures/roadmap --formats png,pdf,pptx  # 另出一份可编辑 PPTX
 ```
 
 ```python
@@ -182,6 +183,29 @@ A4 版心 150 mm ≈ 51%，14.5 pt → 7.4 pt，10.5 pt → 5.3 pt），确认�
 
 底带 1 → 嵌入图 2 → 箭头 2 → 内容框 3–4 → 高亮节点 5。先定层再画。箭头避障和体检能防住“箭头压字/穿框”，但 zorder 层次仍是设计语言的一部分——该在上层的东西（高亮节点、badge）要真的在上层。
 
+## 可编辑导出:PPTX 与带文字的 SVG
+
+示意图和流程图常要在 PowerPoint 里改两个字、挪一个框。`sf.export(fig, stem, formats=("png", "pdf", "pptx"))`
+(或 CLI 的 `--formats …,pptx`)把 schemfig 画布导出成一页可编辑 PPTX,页面尺寸等于画布尺寸:
+
+| 画布里的元素 | PPTX 里变成 |
+|---|---|
+| `rbox` / `text_box` / `badge` 的框 | 矩形或圆角矩形,填充色、边框色、线宽、虚线保留 |
+| 文字 | 文本框:字号、颜色、粗细(按实际渲染的字形判断)、中西文字体分别设置;`$…$` 里的上下标转成上下标文字,希腊字母与常用符号转成 Unicode |
+| `connect` 箭头、流程图连线 | 自由折线/曲线,箭头端点用 PowerPoint 原生箭头 |
+| 其它图形(圆、多边形) | 自由形状 |
+| 坐标轴里的内容(数据 panel、图片) | 整块作为图片放入 |
+
+需要 `pip install python-pptx`。已知限制:
+
+- 连线是独立折线,不绑定在框上——拖动框之后连线要手动跟着调;要大改布局,改规格或脚本重新导出更快。
+- 复杂公式(分式、根号、矩阵)只保留成线性文字;公式多的图以 PDF/SVG 为准。
+- 字体按导出机器上实际使用的字体写入,对方电脑没有同款字体时 PowerPoint 会替换。
+- 数据图(paperfig)不支持 PPTX:数据图要改就改脚本重跑,保证可复现。
+
+要在 Illustrator/Inkscape 里改字,导出 SVG 时加 `svg_text=True`(CLI:`--svg-text`),文字保留为可编辑文本;
+默认的 SVG 把文字转成路径,是为了插进 Word 时不依赖对方字体。
+
 ## 体检诊断:按 code 修,会停
 
 `pf.check_layout` / `sf.check` / `schemfig.py flow` 返回的每条诊断都是 `Issue`：
@@ -193,6 +217,8 @@ A4 版心 150 mm ≈ 51%，14.5 pt → 7.4 pt，10.5 pt → 5.3 pt），确认�
 | `spec/*` | 规格写错：未知字段、重复 id、连到不存在的节点、同一格两个节点、未知泳道或强调色、自环 | 照诊断改规格 |
 | `flow/too-large` | 自动收窄后仍超出 `size` 限制 | 精简节点文字、适度减小字号、长主线拆成两条泳道或改 TB;**不许调大 `size`** |
 | `flow/too-many-emphasis`（warning） | 重心节点超过 2 个 | 只保留全图重心 |
+| `font/missing-glyph` | 缺字:标签里有所用字体没有的字符(中文、①、✓ 等),会渲染成方块 □ | 中文先调 `sf.setup_fonts()` 或在 `font.sans-serif` 前面加中文字体;特殊符号改用 mathtext |
+| `font/fallback`(warning) | 要求的字体(如 Arial)没装,退回 DejaVu Sans | 安装 Arial 或度量兼容的 Liberation Sans;不能装就在交付说明里注明 |
 | `text/too-small` | 字号低于底线:印刷 5 pt;图幅是 TOC 尺寸(ACS 3.25×1.75 in、RSC 8×4 cm、Wiley 55×50 mm)时 8 pt | 加大字号;TOC 删减次要文字,不靠缩字塞内容 |
 | `text/out-of-figure` | 文字出画布 | 移回画布内、加大画布或边距 |
 | `text/out-of-axes` | 数据坐标标注飘出轴外 | 按数据范围重算坐标、放宽 xlim/ylim |

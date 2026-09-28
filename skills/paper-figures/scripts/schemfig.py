@@ -50,7 +50,7 @@ import os
 import re
 import sys
 import textwrap
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -144,6 +144,7 @@ def canvas(width_in: float, height_in: float, S: dict):
     fig._schem_obstacles = []            # El 列表:箭头避障 + 体检用
     fig._schem_arrows = []               # 已画箭头档案:体检复查用
     fig._schem_check = lambda f=fig: check(f)   # paperfig.check_layout 会调用
+    fig._schem_pptx = lambda path, f=fig: to_pptx(f, path)   # export(formats 含 "pptx") 会调用
     return fig
 
 
@@ -487,11 +488,14 @@ def check(fig) -> list:
     return issues
 
 
-def export(fig, stem, dpi=300, formats=("png", "pdf"), strict=True, crops=True, report=True):
+def export(fig, stem, dpi=300, formats=("png", "pdf"), strict=True, crops=True, report=True,
+           svg_text=False):
     """示意图导出:体检(paperfig 全套 + schemfig 几何)→ 拦截 → 出图 → 切块。
 
     图要插 Word/PPT 时在 formats 里加 "svg"(文字自动转路径):Word 2016+ 原生
     支持 SVG 矢量插入,任意缩放不糊;PNG 插 Word 会被默认压缩到 220 ppi。
+    svg_text=True:SVG 里保留真实文字(Illustrator/Inkscape 里能直接改字,对方机器要有同款字体)。
+    formats 里加 "pptx":导出可编辑的 PowerPoint——框、文字、连线都是可单独选中修改的原生对象。
 
     有 error 级诊断时 strict=True 直接拒绝导出,诊断写进 <stem>.check.json——
     按 code 对症修复后重跑,不许带病交付。出图后自动生成 2×2 局部放大块,
@@ -514,9 +518,12 @@ def export(fig, stem, dpi=300, formats=("png", "pdf"), strict=True, crops=True, 
     for ext in formats:
         p = f"{stem}.{ext}"
         if ext == "svg":
-            # Word/PPT 用矢量:文字转路径,不依赖对方机器字体,缩放永远清晰
-            with matplotlib.rc_context({"svg.fonttype": "path"}):
+            # 默认文字转路径:不依赖对方机器字体,Word 里缩放永远清晰;svg_text=True 保留可编辑文字
+            with matplotlib.rc_context({"svg.fonttype": "none" if svg_text else "path"}):
                 fig.savefig(p, facecolor=fig.get_facecolor())
+        elif ext == "pptx":
+            _, n = to_pptx(fig, p)
+            print(f"[schemfig] 可编辑 PPTX: {p}({', '.join(f'{k} {v}' for k, v in sorted(n.items()))})")
         else:
             fig.savefig(p, dpi=dpi, facecolor=fig.get_facecolor())
         paths.append(p)
@@ -526,6 +533,406 @@ def export(fig, stem, dpi=300, formats=("png", "pdf"), strict=True, crops=True, 
         print("[schemfig] 局部放大块已生成，请逐块 Read 检查: " + ", ".join(cs))
         paths += cs
     return paths
+
+
+
+# ================================================================== 可编辑 PPTX 导出
+# 示意图 / 流程图导出成原生 PowerPoint 对象:每个框是形状,每段文字是文本框,每条连线是带箭头的
+# 折线,都能在 PowerPoint 里单独选中、改字、改色、拖动。坐标取自 matplotlib 的实测渲染结果,
+# 所以版式与 PDF/PNG 一致。figure 坐标系里的元素全部转成原生对象;画在坐标轴里的内容
+# (数据 panel、图片)整块作为图片嵌入。需要 python-pptx(pip install python-pptx)。
+
+_GREEK = {
+    "alpha": "α", "beta": "β", "gamma": "γ", "delta": "δ", "epsilon": "ε", "varepsilon": "ε", "zeta": "ζ",
+    "eta": "η", "theta": "θ", "kappa": "κ", "lambda": "λ", "mu": "μ", "nu": "ν", "xi": "ξ", "pi": "π",
+    "rho": "ρ", "sigma": "σ", "tau": "τ", "phi": "φ", "varphi": "φ", "chi": "χ", "psi": "ψ", "omega": "ω",
+    "Gamma": "Γ", "Delta": "Δ", "Theta": "Θ", "Lambda": "Λ", "Sigma": "Σ", "Phi": "Φ", "Psi": "Ψ",
+    "Omega": "Ω", "Pi": "Π", "times": "×", "pm": "±", "mp": "∓", "cdot": "·", "circ": "°", "degree": "°",
+    "AA": "Å", "rightarrow": "→", "leftarrow": "←", "to": "→", "leftrightarrow": "↔", "approx": "≈",
+    "leq": "≤", "geq": "≥", "le": "≤", "ge": "≥", "neq": "≠", "sim": "∼", "infty": "∞", "partial": "∂",
+    "nabla": "∇", "prime": "′", "langle": "⟨", "rangle": "⟩", "propto": "∝", "ell": "ℓ", "hbar": "ℏ",
+    "minus": "−", "%": "%", "$": "$", "_": "_", "&": "&", "#": "#",
+}
+_MATH_WRAP = {"mathrm", "mathit", "mathbf", "mathsf", "text", "textrm", "textit", "mathdefault", "operatorname", "rm", "it", "bf"}
+
+
+def _math_runs(s):
+    """把 mathtext 字符串拆成 (文字, 基线, 斜体) 片段:基线 >0 上标、<0 下标。
+    与 mathtext 一致:公式里的字母默认斜体、数字直立、\\mathrm{} 直立,空格忽略,- 写成 −。"""
+    runs = []
+
+    def emit(txt, base, italic):
+        if txt:
+            if runs and runs[-1][1:] == (base, italic):
+                runs[-1] = (runs[-1][0] + txt, base, italic)
+            else:
+                runs.append((txt, base, italic))
+
+    def group(src, i):
+        """读一个参数:{…} 组、\\命令或单个字符,返回 (内容, 新位置)。"""
+        if i < len(src) and src[i] == "{":
+            depth, j = 0, i
+            while j < len(src):
+                depth += {"{": 1, "}": -1}.get(src[j], 0)
+                if depth == 0:
+                    return src[i + 1:j], j + 1
+                j += 1
+            return src[i + 1:], len(src)
+        if i < len(src) and src[i] == "\\":
+            m = re.match(r"\\([A-Za-z]+|.)", src[i:])
+            return m.group(0), i + len(m.group(0))
+        return src[i:i + 1], i + 1
+
+    def walk(src, base, upright):
+        i = 0
+        while i < len(src):
+            c = src[i]
+            if c in "_^":
+                arg, i = group(src, i + 1)
+                # PowerPoint 不能嵌套上下标:已在上下标里的再上下标,保持同一层
+                walk(arg, base or (30000 if c == "^" else -25000), upright)
+            elif c == "\\":
+                m = re.match(r"\\([A-Za-z]+|.)", src[i:])
+                name = m.group(1)
+                i += len(m.group(0))
+                if name in _MATH_WRAP:
+                    while i < len(src) and src[i] == " ":
+                        i += 1
+                    arg, i = group(src, i)
+                    walk(arg, base, upright or name not in ("mathit", "it", "textit"))
+                elif name in (",", ";", ":", " ", "quad"):
+                    emit(" ", base, False)
+                elif name in ("!", "left", "right", "big", "Big"):
+                    pass
+                else:
+                    g = _GREEK.get(name, name)
+                    emit(g, base, not upright and g.isalpha() and g.islower())
+            elif c in "{} ":
+                i += 1
+            else:
+                emit("−" if c == "-" else c, base, not upright and c.isalpha())
+                i += 1
+
+    parts = re.split(r"(?<!\\)\$", s)
+    for k, part in enumerate(parts):
+        if k % 2:
+            walk(part, 0, False)
+        else:
+            emit(part.replace("\\$", "$"), 0, False)
+    return runs
+
+
+def _rgba(c):
+    from matplotlib.colors import to_rgba
+    try:
+        return to_rgba(c)
+    except Exception:
+        return None
+
+
+def _set_color(fill_or_line_fmt, c, alpha_elem_parent=None):
+    """给 python-pptx 的 FillFormat/颜色设 RGB,透明度写进 XML。返回是否可见。"""
+    from pptx.dml.color import RGBColor
+    rgba = _rgba(c)
+    if rgba is None or rgba[3] == 0:
+        return False
+    fill_or_line_fmt.solid()
+    fill_or_line_fmt.fore_color.rgb = RGBColor(*[round(v * 255) for v in rgba[:3]])
+    if rgba[3] < 0.999:
+        from lxml import etree
+        clr = fill_or_line_fmt._xPr.find(".//{http://schemas.openxmlformats.org/drawingml/2006/main}srgbClr")
+        if clr is not None:
+            a = etree.SubElement(clr, "{http://schemas.openxmlformats.org/drawingml/2006/main}alpha")
+            a.set("val", str(int(rgba[3] * 100000)))
+    return True
+
+
+def _style_line(shape, color, lw, ls, head=None, tail=None):
+    from pptx.enum.dml import MSO_LINE
+    from pptx.util import Pt
+    line = shape.line
+    if not lw or not _set_color(line.fill, color):
+        line.fill.background()
+        return
+    line.width = Pt(lw)
+    if ls in ("--", "dashed") or (isinstance(ls, tuple) and ls[1]):
+        line.dash_style = MSO_LINE.DASH
+    elif ls in (":", "dotted"):
+        line.dash_style = MSO_LINE.ROUND_DOT
+    elif ls in ("-.", "dashdot"):
+        line.dash_style = MSO_LINE.DASH_DOT
+    from lxml import etree
+    ln = line._get_or_add_ln()
+    ns = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+    for tag, kind in (("headEnd", head), ("tailEnd", tail)):
+        if kind:
+            e = etree.SubElement(ln, ns + tag)
+            e.set("type", kind)
+            e.set("w", "med")
+            e.set("len", "med")
+
+
+def _arrow_ends(style):
+    """matplotlib 箭头样式 → (起点端, 终点端) 的 DrawingML 箭头类型。"""
+    name = type(style).__name__            # CurveFilledB = "-|>",CurveAB = "<->" ……
+    if not name.startswith("Curve"):
+        return None, None
+    kind = "triangle" if "Filled" in name else "arrow"
+    tail = name[5:].replace("Filled", "")
+    return (kind if "A" in tail else None), (kind if "B" in tail else None)
+
+
+def _pptx_font_names(t):
+    """(西文字体, 中文字体):取 matplotlib 实际用来渲染这段文字的字体。"""
+    from matplotlib import font_manager as fm
+    try:
+        chain = list(fm.fontManager._find_fonts_by_props(t.get_fontproperties()))
+    except Exception:
+        chain = [fm.findfont(t.get_fontproperties())]
+    names = [fm.get_font(p).family_name for p in chain]
+    latin = next((n for n in names if n not in ("PingFang SC", "Hiragino Sans GB", "Songti SC", "Microsoft YaHei",
+                                                "SimHei", "Noto Sans CJK SC", "WenQuanYi Zen Hei")), names[0])
+    cjk = None
+    if re.search(r"[　-鿿＀-￯]", t.get_text()):
+        for p, n in zip(chain, names):
+            if ord("中") in fm.get_font(p).get_charmap():
+                cjk = n
+                break
+    return latin, cjk
+
+
+def _rendered_bold(t):
+    """按 matplotlib 实际选中的字形文件判断粗细:很多中文字体没有粗体字面,
+    weight=600 渲染出来仍是常规体,PPT 里就不该加粗。"""
+    from matplotlib import font_manager as fm
+    try:
+        chain = list(fm.fontManager._find_fonts_by_props(t.get_fontproperties()))
+    except Exception:
+        chain = [fm.findfont(t.get_fontproperties())]
+    first = next((c for c in t.get_text() if not c.isspace() and c != "$"), "A")
+    for path in chain:
+        font = fm.get_font(path)
+        if ord(first) in font.get_charmap():
+            return bool(re.search(r"bold|semibold|demi|heavy|black", font.style_name, re.I))
+    return False
+
+
+def _add_text(slide, t, renderer, fig, emu):
+    from pptx.dml.color import RGBColor
+    from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
+    from pptx.util import Pt
+    s = t.get_text()
+    rot = t.get_rotation() % 360
+    if rot:
+        t.set_rotation(0)
+    b = t.get_window_extent(renderer)
+    if rot:
+        t.set_rotation(rot)
+        rb = t.get_window_extent(renderer)                  # 旋转后以原中心为准
+        cx, cy = (rb.x0 + rb.x1) / 2, (rb.y0 + rb.y1) / 2
+        b = type(b).from_bounds(cx - b.width / 2, cy - b.height / 2, b.width, b.height)
+    pad = 0.04 * b.width + 2                               # PowerPoint 字距略宽,留一点余量防止换行
+    x, y = emu(b.x0 - pad / 2, b.y1)
+    w, h = int((b.width + pad) / fig.dpi * 914400), int(b.height / fig.dpi * 914400)
+    box = slide.shapes.add_textbox(x, y, max(w, 1), max(h, 1))
+    tf = box.text_frame
+    tf.word_wrap = False
+    tf.auto_size = MSO_AUTO_SIZE.NONE
+    tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    bp = t.get_bbox_patch()
+    if bp is not None and bp.get_visible():
+        if not _set_color(box.fill, bp.get_facecolor()):
+            box.fill.background()
+    align = {"left": PP_ALIGN.LEFT, "right": PP_ALIGN.RIGHT}.get(t.get_horizontalalignment(), PP_ALIGN.CENTER)
+    latin, cjk = _pptx_font_names(t)
+    rgba = _rgba(t.get_color()) or (0, 0, 0, 1)
+    bold = _rendered_bold(t)
+    for k, line in enumerate(s.split("\n")):
+        para = tf.paragraphs[0] if k == 0 else tf.add_paragraph()
+        para.alignment = align
+        para.line_spacing = getattr(t, "_linespacing", 1.2) * 0.85
+        for txt, base, math_italic in _math_runs(line):
+            r = para.add_run()
+            r.text = txt
+            f = r.font
+            f.size = Pt(t.get_fontsize())
+            f.bold = bold
+            f.italic = math_italic or t.get_fontstyle() in ("italic", "oblique")
+            f.color.rgb = RGBColor(*[round(v * 255) for v in rgba[:3]])
+            f.name = latin
+            rpr = r._r.get_or_add_rPr()
+            if base:
+                rpr.set("baseline", str(base))
+            if cjk:
+                from lxml import etree
+                ea = etree.SubElement(rpr, "{http://schemas.openxmlformats.org/drawingml/2006/main}ea")
+                ea.set("typeface", cjk)
+    if rot:
+        box.rotation = -rot
+    return box
+
+
+def _add_poly(slide, pts, closed, emu):
+    if len(pts) < 2:
+        return None
+    pts = [emu(x, y) for x, y in pts]
+    ff = slide.shapes.build_freeform(pts[0][0], pts[0][1], scale=1.0)
+    ff.add_line_segments(pts[1:], close=closed)
+    return _plain(ff.convert_to_shape())
+
+
+def _plain(shape):
+    """去掉 python-pptx 默认挂上的主题样式(p:style),否则会带默认阴影和主题配色。"""
+    style = shape._element.find("{http://schemas.openxmlformats.org/presentationml/2006/main}style")
+    if style is not None:
+        shape._element.remove(style)
+    return shape
+
+
+def to_pptx(fig, path):
+    """把 schemfig 画布导出成可编辑的 PPTX(一页,页面尺寸 = 画布尺寸)。
+
+    框(FancyBboxPatch)→ 矩形/圆角矩形;文字 → 文本框(字号、粗细、颜色、中西文字体、上下标);
+    箭头与折线 → 带箭头端点的自由折线;其它图形 → 自由形状;坐标轴里的内容 → 图片。
+    返回写出的路径。"""
+    try:
+        from pptx import Presentation
+        from pptx.enum.shapes import MSO_SHAPE
+        from pptx.util import Emu
+    except ImportError as exc:
+        raise RuntimeError("导出 PPTX 需要 python-pptx:pip install python-pptx") from exc
+    import io
+
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import FancyArrowPatch, Patch
+    from matplotlib.text import Text
+
+    orig_canvas = fig.canvas
+    FigureCanvasAgg(fig)
+    try:
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        W, H = fig.bbox.width, fig.bbox.height
+        k = 914400 / fig.dpi
+
+        def emu(x, y):
+            return int(round(x * k)), int(round((H - y) * k))
+
+        prs = Presentation()
+        prs.slide_width, prs.slide_height = Emu(int(W * k)), Emu(int(H * k))
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        bg = _rgba(fig.patch.get_facecolor())
+        if bg and bg[3] > 0:
+            _set_color(slide.background.fill, fig.patch.get_facecolor())
+
+        items = [(a.get_zorder(), n, a) for n, a in enumerate(list(fig.artists) + list(fig.patches) + list(fig.lines)
+                                                                + list(fig.texts) + list(fig.axes))]
+        items.sort(key=lambda x: (x[0], x[1]))
+
+        # 坐标轴内容整块转图片:先隐藏 figure 级元素,只渲染坐标轴
+        axes = [a for _, _, a in items if hasattr(a, "get_tightbbox") and a in fig.axes and a.get_visible()]
+        crops = {}
+        if axes:
+            hidden = [a for _, _, a in items if a not in fig.axes and a.get_visible()]
+            fc = fig.patch.get_facecolor()
+            for a in hidden:
+                a.set_visible(False)
+            fig.patch.set_alpha(0)
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi=fig.dpi * 2, transparent=True)
+            for a in hidden:
+                a.set_visible(True)
+            fig.patch.set_facecolor(fc)
+            fig.canvas.draw()
+            from PIL import Image
+            img = Image.open(io.BytesIO(buf.getvalue()))
+            for ax in axes:
+                tb = ax.get_tightbbox(renderer).padded(2)
+                box = (max(0, int(tb.x0 * 2)), max(0, int((H - tb.y1) * 2)),
+                       min(img.width, int(tb.x1 * 2)), min(img.height, int((H - tb.y0) * 2)))
+                if box[2] > box[0] and box[3] > box[1]:
+                    out = io.BytesIO()
+                    img.crop(box).save(out, format="PNG")
+                    crops[id(ax)] = (out, box)
+
+        count = Counter()
+        for _, _, a in items:
+            if not a.get_visible():
+                continue
+            if a in fig.axes:
+                if id(a) in crops:
+                    out, (x0, y0, x1, y1) = crops[id(a)]
+                    out.seek(0)
+                    slide.shapes.add_picture(out, int(x0 / 2 * k), int(y0 / 2 * k), int((x1 - x0) / 2 * k),
+                                             int((y1 - y0) / 2 * k))
+                    count["picture"] += 1
+                continue
+            if isinstance(a, Text):
+                if a.get_text().strip():
+                    _add_text(slide, a, renderer, fig, emu)
+                    count["text"] += 1
+                continue
+            if isinstance(a, FancyArrowPatch):
+                paths, fills = a._get_path_in_displaycoord()
+                head, tail = _arrow_ends(a.get_arrowstyle())
+                if head is None and tail is None and any(fills):
+                    for pth in paths:           # 实心箭头样式(Simple/Fancy/Wedge):按多边形画
+                        for poly in pth.to_polygons(closed_only=True):
+                            shp = _add_poly(slide, poly, True, emu)
+                            if shp is not None:
+                                _set_color(shp.fill, a.get_facecolor())
+                                shp.line.fill.background()
+                    count["arrow"] += 1
+                    continue
+                for poly in paths[0].to_polygons(closed_only=False):
+                    shp = _add_poly(slide, poly, False, emu)
+                    if shp is not None:
+                        shp.fill.background()
+                        _style_line(shp, a.get_edgecolor(), a.get_linewidth(), a.get_linestyle(), head, tail)
+                count["arrow"] += 1
+                continue
+            if isinstance(a, Patch):
+                x0 = y0 = None
+                if type(a).__name__ == "FancyBboxPatch" and a.get_transform() == fig.transFigure:
+                    bs = a.get_boxstyle()
+                    xa, ya = fig.transFigure.transform((a.get_x(), a.get_y()))
+                    xb, yb = fig.transFigure.transform((a.get_x() + a.get_width(), a.get_y() + a.get_height()))
+                    rs = getattr(bs, "rounding_size", 0) or 0
+                    rounded = type(bs).__name__ in ("Round", "Round4") and rs > 0
+                    x0, y0 = emu(xa, yb)
+                    shp = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE if rounded else MSO_SHAPE.RECTANGLE,
+                                                 x0, y0, max(int((xb - xa) * k), 1), max(int((yb - ya) * k), 1))
+                    if rounded:
+                        r_px = rs * W
+                        shp.adjustments[0] = min(0.5, r_px / max(min(xb - xa, yb - ya), 1e-6))
+                else:
+                    polys = a.get_transform().transform_path(a.get_path()).to_polygons(closed_only=False)
+                    shp = None
+                    for poly in polys:
+                        shp = _add_poly(slide, poly, True, emu)
+                    if shp is None:
+                        continue
+                if not a.get_fill() or not _set_color(shp.fill, a.get_facecolor()):
+                    shp.fill.background()
+                _style_line(shp, a.get_edgecolor(), a.get_linewidth(), a.get_linestyle())
+                _plain(shp)
+                if shp.has_text_frame:
+                    shp.text_frame.text = ""
+                count["shape"] += 1
+                continue
+            if isinstance(a, Line2D):
+                pts = a.get_transform().transform(a.get_xydata())
+                shp = _add_poly(slide, pts, False, emu)
+                if shp is not None:
+                    shp.fill.background()
+                    _style_line(shp, a.get_color(), a.get_linewidth(), a.get_linestyle())
+                    count["line"] += 1
+        prs.save(path)
+        return path, dict(count)
+    finally:
+        fig.set_canvas(orig_canvas)
 
 
 def make_crops(png_path, rows=2, cols=2, overlap=0.10):
@@ -1483,7 +1890,8 @@ def _main(argv=None):
     f.add_argument("spec", help="规格 JSON 文件")
     f.add_argument("-o", "--out", help="输出路径前缀(不含扩展名);--style all 时追加 -paper/-dark")
     f.add_argument("--style", default="paper", choices=[*STYLES, "all"])
-    f.add_argument("--formats", default="png,pdf", help="逗号分隔,如 png,pdf,svg")
+    f.add_argument("--formats", default="png,pdf", help="逗号分隔,如 png,pdf,svg,pptx(pptx = 可编辑 PowerPoint)")
+    f.add_argument("--svg-text", action="store_true", help="SVG 保留可编辑文字(默认转路径)")
     f.add_argument("--dpi", type=int, default=300)
     f.add_argument("--check", action="store_true", help="只排版和体检,不写图")
     f.add_argument("--json", action="store_true", help="输出机器可读的回执")
@@ -1525,6 +1933,7 @@ def _main(argv=None):
                 else:
                     rec["outputs"] = export(fig, stem, dpi=args.dpi,
                                             formats=tuple(x for x in args.formats.split(",") if x),
+                                            svg_text=args.svg_text,
                                             crops=not args.no_crops)
         plt.close(fig)
         code = max(code, 1 if errors else 0)
