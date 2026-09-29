@@ -703,6 +703,10 @@ _GREEK = {
     "nabla": "∇", "prime": "′", "langle": "⟨", "rangle": "⟩", "propto": "∝", "ell": "ℓ", "hbar": "ℏ",
     "minus": "−", "%": "%", "$": "$", "_": "_", "&": "&", "#": "#",
 }
+_REL = set("=<>≤≥≈∼≠∝→←↔≡≪≫")
+_FUNCS = {"ln", "log", "lg", "exp", "sin", "cos", "tan", "sinh", "cosh", "tanh", "arcsin", "arccos", "arctan",
+          "max", "min", "sup", "inf", "lim", "det", "arg", "deg", "dim", "ker", "Pr", "gcd", "mod"}
+_BIN = set("+−×±∓·")
 _MATH_WRAP = {"mathrm", "mathit", "mathbf", "mathsf", "text", "textrm", "textit", "mathdefault", "operatorname", "rm", "it", "bf"}
 
 
@@ -730,10 +734,26 @@ def _math_runs(s):
             return src[i + 1:], len(src)
         if i < len(src) and src[i] == "\\":
             m = re.match(r"\\([A-Za-z]+|.)", src[i:])
-            return m.group(0), i + len(m.group(0))
+            j = i + len(m.group(0))
+            if m.group(1) in _MATH_WRAP:          # E_\mathrm{ads}:参数是整个 \mathrm{ads},不只是命令名
+                k = j
+                while k < len(src) and src[k] == " ":
+                    k += 1
+                if k < len(src) and src[k] == "{":
+                    _, j = group(src, k)
+            return src[i:j], j
         return src[i:i + 1], i + 1
 
+    def op(sym, base, operand_seen):
+        """关系符两边留空格;二元运算符前面有运算对象时才留(^{-2} 里的负号不留),与 mathtext 一致。"""
+        if sym in _REL or (sym in _BIN and operand_seen):
+            emit(f" {sym} ", base, False)
+        else:
+            emit(sym, base, False)
+
     def walk(src, base, upright):
+        seen = False                              # 本组里是否已经出现过运算对象
+        after_func = False                        # 刚写完 \ln 这类函数名:后面紧跟字母数字时补一个空格
         i = 0
         while i < len(src):
             c = src[i]
@@ -754,13 +774,30 @@ def _math_runs(s):
                     emit(" ", base, False)
                 elif name in ("!", "left", "right", "big", "Big"):
                     pass
+                elif name in _FUNCS:                  # \ln、\exp:直立;ln K 中间留空格,ln(x) 不留
+                    emit((" " if seen else "") + name, base, False)
+                    seen, after_func = False, True
                 else:
                     g = _GREEK.get(name, name)
-                    emit(g, base, not upright and g.isalpha() and g.islower())
+                    if g in _REL or g in _BIN:
+                        op(g, base, seen)
+                    else:
+                        emit((" " if after_func else "") + g, base, not upright and g.isalpha() and g.islower())
+                        seen = True
+                    after_func = False
             elif c in "{} ":
                 i += 1
             else:
-                emit("−" if c == "-" else c, base, not upright and c.isalpha())
+                c = "−" if c == "-" else c
+                if c in _REL or c in _BIN:
+                    op(c, base, seen)
+                elif c in "([":                       # 开括号之后的负号是一元负号
+                    emit(c, base, False)
+                    seen = False
+                else:
+                    emit((" " if after_func and c.isalnum() else "") + c, base, not upright and c.isalpha())
+                    seen = True
+                after_func = False
                 i += 1
 
     parts = re.split(r"(?<!\\)\$", s)
@@ -769,7 +806,16 @@ def _math_runs(s):
             walk(part, 0, False)
         else:
             emit(part.replace("\\$", "$"), 0, False)
-    return runs
+    # 运算符补的空格与原文空格相邻时合并成一个
+    out, prev_space = [], False
+    for txt, base, it in runs:
+        if prev_space:
+            txt = txt.lstrip(" ")
+        txt = re.sub(r" {2,}", " ", txt)
+        if txt:
+            out.append((txt, base, it))
+            prev_space = txt.endswith(" ")
+    return out
 
 
 def _rgba(c):
