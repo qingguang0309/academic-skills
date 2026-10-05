@@ -12,6 +12,7 @@
 | [paper-slides](skills/paper-slides/) | ✅ 可用 | 标准美观的学术汇报 PPT：pptxgenjs + slidekit.js 组件库，模型只组装组件不手拍坐标；中西文混排自动分字体，封面/目录/章节过渡/三线表/页码等中文学术惯例内建，5 套配色主题（含北大红 `pku` 主题：答辩版式——红带封面、章节号页眉、章节列表页、红带结束页）、中英双语；页题下结论条（关键数据标红加粗）、真上下标、每页有图（缺图报警，文献图须注来源）、全文不用卡片、正文 16–17.5 pt；fetchimg 按题目拉取 CC 许可真实网络配图（格式嗅探/转码/压缩/署名清洗，且 build 时检查全篇是否有真实素材、0 张即报警），自绘流程图/技术路线图写声明式 JSON 规格、由 paper-figures 的 schemfig 自动排版与正交布线，formula 把 LaTeX 方程渲染进页面（自动降级 LaTeX→mathtext）、算法块排伪代码，chart 出原生可编辑图表（饼图守三条判据否则强制换水平条），wordlint 按四档判定扫 AI 词汇与口号（白名单保护正常术语），页标题只点明主题、完成与计划用 status 标出【已实现】【拟开展】、图注用 evidence 分清实测与示意，标题过长、总结框重复、卡片套分类模板、大数字缺条件、答辩没讲困难与局限都在 build 时报警，填充率低于阈值即报警，aiimg 调 DashScope 出图模型生成概念示意图（目检回炉），组图先单张再 collage 确定性拼版，全部署名由 credits.json 机制自动落页；全片默认注入克制的放映切换效果。产出原生可编辑 pptx + 可复现脚本。示例见 [examples/bse-eds-report/slides](examples/bse-eds-report/slides/) |
 | [paper-polish](skills/paper-polish/) | ✅ 可用 | 论文去 AI 味与润色（不是规避检测）。核心是去 AI 味：deai_lint.py 体检 LaTeX/Markdown 稿件——基于 Kobak et al. 2025 PubMed 超额词统计分档的词表、套话、无证据的强断言与无检验的 significant、生成残留与提示注入、引用键核对、节奏雷同，并按领域查专业细节（DFT+ML 期刊：泛函/U 值/k 点/数据划分/误差指标/基线/分布外测试；LLM agent 会议：拟人化、方差与种子、Limitations、模型版本）；只改被点名的句子，缺的细节写成 [请确认] 交给作者；guard.py 逐项对照改写前后的引用、公式、数字与结论力度，杜绝改着改着改错事实。辅助功能是编辑视角的语言与逻辑润色：Major/Moderate/Minor 分级意见，每条用中文讲清为什么，时态与 hedging 按证据等级校准，可疑科学表述单列"编辑提问"。附各期刊/会议 AI 使用披露要求与声明草稿；产出修改报告 + 修改后全文（.tex/.docx 原格式回填） |
 | [paper-word](skills/paper-word/) | ✅ 可用 | 学术 Word 文档风格规范：python-docx 脚本一键套版——页眉左侧北大校徽 + 右侧文档标题 + 北大红分隔线，页脚"第X页/共X页"页码域，全文各级标题（Title/Subtitle/Heading 1–9，所有级别）统一北大红（样式级 + 段落级双重兜底），正文宋体 + Times New Roman、标题微软雅黑 + Arial；技术文档强制参考文献 + 脚注，写作强调去 AI 味、结论先行、直接简洁。与 docx skill 配合：先生成内容再套版 |
+| [chat-to-obsidian](skills/chat-to-obsidian/) | ✅ 可用 | 把和 Claude 的对话整理成 Obsidian 知识笔记，用 Filesystem 扩展（桌面版）或原生文件工具（Claude Code）直接写进本地 vault：先列出已有笔记查重、找双链对象、沿用标签，同主题合并更新而不另起一篇；提炼时只留结论、机制、判据、实测和命令，删掉来回追问和走错的路，后文的更正折进正文；格式固定为 frontmatter（tags/created/source）+ 导语（可选核心概念卡）+ 内容型小节 + `## 相关`（带联系说明的双链，并在旧笔记里补回链）+ `## 术语表`（大白话）；check_note.py 检查 frontmatter、一级标题、术语表格式、双链是否存在、对话痕迹词 |
 
 此外,仓库内置 **[paperflow](paperflow/)** —— 基于 LangGraph 的论文生成流水线:大纲之后**文献链与图表链并行**(按主题现场生成 matplotlib 图),引用经 Crossref/Semantic Scholar 真实性核验(自动剔除编造 DOI),再渲染进**标准 LaTeX 模板**(SCI 单栏投稿格式 / 北京大学 pkuthss 学位论文)并用 tectonic 编译 PDF,QA 不过自动修订。LLM 后端默认走**本机 claude CLI 登录态**(不需要 API key),端到端演示见 [examples/paperflow-demo](examples/paperflow-demo/)。
 
@@ -27,12 +28,12 @@ skill 改得好不好用数字说话:**[evals/paper-figures](evals/paper-figures
 
 ```bash
 git clone https://github.com/qingguang0309/academic-skills.git
-cp -r academic-skills/skills/paper-figures academic-skills/skills/paper-slides academic-skills/skills/paper-polish academic-skills/skills/paper-word ~/.claude/skills/
+cp -r academic-skills/skills/paper-figures academic-skills/skills/paper-slides academic-skills/skills/paper-polish academic-skills/skills/paper-word academic-skills/skills/chat-to-obsidian ~/.claude/skills/
 ```
 
 或只装进某个项目：复制到项目的 `.claude/skills/` 下。
 
-运行时依赖：paper-figures 需要 Python + matplotlib（导出可编辑 PPTX 另需 python-pptx）；paper-slides 需要 Node.js（生成时 `npm install pptxgenjs`），视觉检查用 LibreOffice + poppler（`soffice`/`pdftoppm`，可选）；paper-word 需要 Python + python-docx；paper-polish 的脚本只用 Python 标准库。
+运行时依赖：paper-figures 需要 Python + matplotlib（导出可编辑 PPTX 另需 python-pptx）；paper-slides 需要 Node.js（生成时 `npm install pptxgenjs`），视觉检查用 LibreOffice + poppler（`soffice`/`pdftoppm`，可选）；paper-word 需要 Python + python-docx；paper-polish 和 chat-to-obsidian 的脚本只用 Python 标准库（chat-to-obsidian 在桌面版对话里需开启 Filesystem 扩展并授权 vault 目录）。
 
 也可以作为插件市场安装：
 
