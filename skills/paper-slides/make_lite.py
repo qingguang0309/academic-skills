@@ -118,7 +118,10 @@ def main():
 
     (OUT / "scripts" / "slidekit.js").write_text(lite)
     shutil.copy2(HERE / "scripts" / "fetchimg.py", OUT / "scripts" / "fetchimg.py")
-    for name in ("SKILL.md", "README.md", "package.json"):
+    # 模板存成 SKILL.md.tmpl:skill 打包时整个目录都会进 zip,
+    # 包里只能有一个 SKILL.md,否则上传报错。生成时再还原文件名。
+    shutil.copy2(HERE / "lite" / "SKILL.md.tmpl", OUT / "SKILL.md")
+    for name in ("README.md", "package.json"):
         shutil.copy2(HERE / "lite" / name, OUT / name)
     shutil.copy2(HERE / "lite" / "example.js", OUT / "examples" / "minimal" / "deck.js")
 
