@@ -19,3 +19,6 @@ evals/*/runs/
 
 # paper-polish 去 AI 味体检报告(运行时生成)
 *.deai.json
+
+# 打包产物(skill-creator 的 package_skill.py 生成)
+*.skill
