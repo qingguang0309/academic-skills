@@ -4,15 +4,15 @@
 // 设计目标(对应 paper-slides skill 三条铁律):
 //   1. 模型只组装组件,不手拍坐标——版式由布局引擎计算
 //   2. 中西文混排自动分 run:汉字走中文字体,拉丁/数字走西文字体
-//   3. 中文学术惯例内建:封面信息区/目录/章节过渡/三线表/页码页脚
+//   3. 中文学术惯例内建:封面/目录/三线表/页码页脚(章节默认不出过渡页)
 //
 // 用法:
 //   const { Deck, THEMES } = require('./slidekit');
 //   const d = new Deck({ theme:'azure', lang:'zh', title:'…', shortTitle:'…',
 //                        occasion:'开放基金汇报', presenter:'…', org:'…', date:'…' });
 //   d.cover(); d.toc();
-//   d.section('研究背景');
-//   d.page({ title:'原型测试与后续验证', blocks:[ {type:'bullets', items:[…]} ] });
+//   d.section('研究背景');            // 只登记章节(进目录、作页标题),默认不出过渡页
+//   d.page({ conclusion:'…**关键数据**…', blocks:[ {type:'bullets', items:[…]} ] });
 //   d.refs([…]); d.closing(); d.build('out.pptx');
 // ============================================================
 "use strict";
@@ -33,10 +33,10 @@ const SOURCE_LH = 0.3;       // 来源行行高
 const SOURCE_GAP = 0.16;     // 来源行与正文的净空
 
 // ---------- 字阶(pt,13.33in 画布) ----------
-// 页题以外的文字整体放大到投影可读:正文 16–17.5,表格 15.5,结论条 18
+// 页题以外的文字整体放大到投影可读:正文 16–17.5,表格 15.5,正文首句 18
 const T = {
   coverTitle: 36, coverSub: 16, coverMeta: 14, kicker: 12,
-  pageTitle: 25, pageSub: 16, conclusion: 18, banner: 18,
+  pageTitle: 25, pageSub: 16, conclusion: 18, banner: 18,   // conclusion = 正文首句
   sectionNum: 96, sectionTitle: 30, sectionNote: 16,
   body: 17, small: 16, caption: 13, footer: 9.5,
   statValue: 36, statLabel: 16, statNote: 14,
@@ -296,6 +296,9 @@ class Deck {
     };
     this.kind = KINDS[opts.kind] ? opts.kind : "defense";
     this.meta = opts;         // title/shortTitle/occasion/presenter/advisor/org/date
+    // 章节默认不单独出过渡页:开头一张目录就够了,每章前插一张章节页只是在翻页。
+    // section() 仍然登记章节——目录、左上章节号、页标题、页脚都从它来。
+    this.sectionPages = opts.sectionPages === true;
     this.ops = [];            // 延迟渲染:build 时统一执行(目录/页码需要全局信息)
     this.sections = [];       // {title, note, opIndex}
     this.figN = 0; this.tabN = 0; this.realPhotos = 0; this.hasChart = false;
@@ -394,8 +397,9 @@ class Deck {
   // ---------- 页面注册 API ----------
   cover(extra = {}) { this.ops.push({ k: "cover", a: extra }); }
   toc() { this.ops.push({ k: "toc" }); }
-  // points: [[小标题, 说明], …] 最多 3 条,渲染在章节页下半区——
-  // 章节页不给要点预览就会留大片空白,这是"页面很空"的主要来源之一
+  // 登记章节:进目录,并作为其后各内容页的页标题与左上章节号。默认不出过渡页;
+  // new Deck({ sectionPages: true }) 才渲染章节页,此时 points([[小标题, 说明], …] 最多 3 条)
+  // 落在章节页下半区。
   section(title, note, points) {
     this.sections.push({ title, note });
     this.ops.push({ k: "section", a: { title, note, points, idx: this.sections.length } });
@@ -412,17 +416,17 @@ class Deck {
     pres.layout = "LAYOUT_WIDE";
     this.pres = pres;
 
-    // 预扫:页码与所属章节
-    const total = this.ops.length;
-    let curSec = null, curIdx = 0, tocSlideNo = null;
-    this.ops.forEach((op, i) => {
+    // 预扫:页码与所属章节。不出过渡页时 section 只是章节标记,不占页码
+    const slideOps = this.ops.filter(op => op.k !== "section" || this.sectionPages);
+    const total = slideOps.length;
+    let curSec = null, curIdx = 0, no = 0;
+    this.ops.forEach((op) => {
       if (op.k === "section") { curSec = op.a.title; curIdx = op.a.idx; }
-      op._sec = curSec; op._secIdx = curIdx; op._no = i + 1;
-      if (op.k === "toc") tocSlideNo = i + 1;
-      if (op.k === "section") op.a._pageNo = i + 1;
+      op._sec = curSec; op._secIdx = curIdx;
+      if (op.k !== "section" || this.sectionPages) op._no = ++no;
     });
 
-    for (const op of this.ops) {
+    for (const op of slideOps) {
       const s = pres.addSlide();
       const ctx = { slide: s, no: op._no, total, sec: op._sec, secIdx: op._secIdx };
       if (op.k === "cover") this._cover(ctx, op.a);
@@ -453,7 +457,8 @@ class Deck {
     }
     // 场合是中文学术封面的必需项:评审得先知道这是答辩还是组会。
     // 旧代码里 subtitle 一存在就把 occasion 顶掉了,静默丢失,这里显式兜住。
-    if (!this.meta.occasion) this.warns.push(
+    // ribbon 封面照参考件只放题名、副题、汇报人与日期,不印场合,因此不查。
+    if (!this.meta.occasion && this.brand.style !== "ribbon") this.warns.push(
       `封面缺少 occasion(场合)——中文学术封面必须写明"硕士学位论文答辩""组会文献汇报"之类,` +
       `否则评审无从判断汇报性质`);
     if ((this.kind === "defense" || this.kind === "grant") && !this.ops.some(o => o.k === "ack")) {
@@ -487,8 +492,8 @@ class Deck {
       { fontSize: T.footer, color: th.faint }), {
       x: W - M - 1.2, y: FOOTER_Y, w: 1.2, h: 0.3, align: "right", margin: 0, valign: "middle" });
   }
-  // 页标题只点明主题("谱峰拟合方法""原型测试与后续验证"),结论写进页题下的结论条。
-  // 长到换行、带逗号句号,多半是把结论句或口号搬上了标题。
+  // 页标题就是所在章节名,只点明主题;这页讲什么、结论是什么写进正文,关键处加粗。
+  // 长到换行、带逗号句号,多半是把结论句或口号搬上了章节名。
   _checkTitle(ctx, title, lines) {
     const t = String(title || "");
     const why = [];
@@ -503,8 +508,8 @@ class Deck {
     }
     if (lines > 1) why.push(`${lines} 行`);
     if (why.length) this.warns.push(
-      `页 ${ctx.no} 标题「${t.replace(/\n/g, "")}」${why.join("、")}——标题只点明主题` +
-      `(如"原型测试与后续验证"),结论写进页题下的结论条 conclusion`);
+      `页 ${ctx.no} 标题「${t.replace(/\n/g, "")}」${why.join("、")}——页标题取自章节名,只点明主题` +
+      `(如"研究背景""实验方法"),结论写进正文首句 conclusion`);
   }
 
   // 条目完成状态【已实现】【初步测试】【拟开展】,图的证据类型【实测】【模拟】【示意】……
@@ -559,18 +564,6 @@ class Deck {
     return y;
   }
 
-  // 页题下的结论条:一页一结论,关键数据用 **…** 标主色加粗。左侧一道主色竖线,不填底色
-  _conclusionBar(ctx, text, y) {
-    const th = this.theme, s = ctx.slide;
-    const size = T.conclusion, w = CW - 0.28;
-    const h = textH(text, size, w, 1.34) + 0.08;
-    s.addShape(this.pres.shapes.RECTANGLE, { x: M, y: y + 0.04, w: 0.05, h: h - 0.08,
-      fill: { color: this._fill() }, line: { type: "none" } });
-    s.addText(this.runs(text, { fontSize: size, color: th.ink }),
-      { x: M + 0.28, y, w, h, margin: 0, valign: "middle", lineSpacingMultiple: 1.18 });
-    return h;
-  }
-
   // 页底结论横条(按需):主色底白字。bottom 为横条下沿,返回横条高度
   _banner(ctx, text, bottom) {
     const th = this.theme, s = ctx.slide;
@@ -586,7 +579,8 @@ class Deck {
   _header(ctx, a) { // 返回内容区顶界 y
     if (this.layout.header === "numbered") return this._headerNumbered(ctx, a);
     const th = this.theme;
-    const kicker = a.kicker || ctx.sec || this.meta.occasion || "";
+    // 页题已经是章节名,kicker 再写一遍章节名就重复了;只在作者显式传入时出现
+    const kicker = a.kicker || "";
     let y = 0.5;
     if (kicker) {
       ctx.slide.addText(this.runs(kicker, { fontSize: T.kicker, color: th.accent, bold: true, charSpacing: 2.4 }), {
@@ -869,47 +863,45 @@ class Deck {
     if (a.notes) s.addNotes(a.notes);
   }
 
-  // 变体 ribbon:白底 + 左上校标 + 中部主色带题名 + 底部主色带信息区(汇报人 / 导师 / 单位与日期)。
-  // 题名带随标题行数长高并在空区里垂直居中;信息带固定高度贴底。
+  // 变体 ribbon:照用户给的北大封面参考件(封面.pptx)实测的版式——
+  //   白底;左上横排校标(高 0.78in);中部通栏主色带(默认 y 1.89、高 3.64in),
+  //   带内题名 40pt + 副题 28pt,白色粗体左对齐;带下方居中两行 18pt 黑字:汇报人、日期。
+  // 参考件没有场合行和信息色带,这里也不放。导师并进汇报人那一行,单位并进日期那一行,
+  // 仍是两行,不改变底部的疏密。题名行数多时色带以原中线为轴向两侧长高。
   _coverRibbon(ctx, a) {
     const th = this.theme, s = ctx.slide, m = this.meta, R = this.pres.shapes.RECTANGLE;
-    const fill = this._fill();
     if (this.brand.logo) {
       const d = imgSize(this.brand.logo), lh = 0.78, lw = lh * d.w / d.h;
       s.addImage({ path: this.brand.logo, x: M, y: 0.52, w: lw, h: lh });
     }
-    const tSize = a.titleSize || 38;
+    const tSize = a.titleSize || 40, sSize = a.subtitleSize || 28;
     const t = this._measureTitle(m.title, tSize, CW);
-    if (t.lines >= 4) this.warns.push(`封面标题 ${t.lines} 行(${tSize}pt)——红带放不下,` +
-      `请用 \\n 手动断行、缩短题名,或传 cover({titleSize: 32})`);
-    // _measureTitle 按 1.16 倍字号估行高,中文字体实际渲染约再高三成。题名占位按实际高度算,
-    // 否则副题会压住题名末行(按估值排时实测贴线)
-    const titleH = t.h * 1.35;
-    const occH = m.occasion ? 0.46 : 0, subH = m.subtitle ? 0.58 : 0;
-    const bandH = 0.5 + occH + titleH + subH + 0.45;
-    const infoH = 1.3, infoY = H - infoH;
-    const free0 = 1.62, free1 = infoY - 0.4;
-    const bandY = free0 + Math.max(0, (free1 - free0 - bandH) / 2);
-    s.addShape(R, { x: 0, y: bandY, w: W, h: bandH, fill: { color: fill }, line: { type: "none" } });
-    let y = bandY + 0.5;
-    if (m.occasion) {
-      s.addText(this.runs(m.occasion, { fontSize: 15, color: th.onDarkSub, bold: true, charSpacing: 3 }),
-        { x: M, y, w: CW, h: 0.34, margin: 0, valign: "middle" });
-      y += occH;
-    }
-    s.addText(this.runs(m.title, { fontSize: tSize, color: th.onDark, bold: true }),
-      { x: M, y, w: CW, h: titleH + 0.1, margin: 0, valign: "top", lineSpacingMultiple: 1.16 });
+    if (t.lines >= 3) this.warns.push(`封面标题 ${t.lines} 行(${tSize}pt)——参考版式题名一行、副题一行,` +
+      `长题名拆成"主题名 + subtitle 副题",或传 cover({titleSize: 34})`);
+    // _measureTitle 按 1.16 倍字号估行高,粗体雅黑实际约再高两成;按参考件题名—副题的行距校过
+    const titleH = t.h * 1.2;
+    const subH = m.subtitle ? this._measureTitle(m.subtitle, sSize, CW).h * 1.2 : 0;
+    const blockH = titleH + subH;
+    const mid = 1.89 + 3.64 / 2;
+    const bandH = Math.max(3.64, blockH + 1.4);
+    const bandY = Math.max(1.5, mid - bandH / 2);
+    s.addShape(R, { x: 0, y: bandY, w: W, h: bandH, fill: { color: this._fill() }, line: { type: "none" } });
+    let y = bandY + (bandH - blockH) / 2;
+    s.addText(this.runs(m.title, { fontSize: tSize, color: th.onDark, bold: true, hlColor: th.onDark }),
+      { x: M, y, w: CW, h: titleH, margin: 0, valign: "top", lineSpacingMultiple: 1.16 });
     y += titleH;
-    if (m.subtitle) s.addText(this.runs(m.subtitle, { fontSize: 18, color: th.onDarkSub }),
-      { x: M, y: y + 0.2, w: CW, h: 0.38, margin: 0, valign: "middle" });
-    s.addShape(R, { x: 0, y: infoY, w: W, h: infoH, fill: { color: fill }, line: { type: "none" } });
-    const colW = 3.2, iy = infoY + 0.33;
-    this._infoRows(ctx, { x: M, y: iy, w: colW, onDark: true, rows: [[this.L.presenter, m.presenter]] });
-    this._infoRows(ctx, { x: M + colW + 0.3, y: iy, w: colW, onDark: true, rows: [[this.L.advisor, m.advisor]] });
-    const tail = [m.org, m.date].filter(Boolean).join("  ·  ");
-    const rx = M + 2 * (colW + 0.3);
-    if (tail) this._infoRows(ctx, { x: rx, y: iy, w: W - M - rx, align: "right", onDark: true,
-      rows: [[m.org ? this.L.org : "日期", tail]] });
+    if (m.subtitle) s.addText(this.runs(m.subtitle, { fontSize: sSize, color: th.onDark, bold: true, hlColor: th.onDark }),
+      { x: M, y, w: CW, h: subH, margin: 0, valign: "top", lineSpacingMultiple: 1.16 });
+    const who = [m.presenter, m.advisor && `${this.L.advisor}${this.lang === "zh" ? "：" : ": "}${m.advisor}`]
+      .filter(Boolean).join("　　");
+    const when = [m.org, m.date].filter(Boolean).join("  ·  ");
+    const below = bandY + bandH;
+    const rows = [who, when].filter(Boolean);
+    const y0 = Math.max(below + 0.5, 6.42);   // 参考件汇报人行中心 6.6in,日期行再低 0.46in
+    rows.forEach((txt, i) => s.addText(this.runs(txt, { fontSize: 18, color: th.ink }),
+      { x: M, y: y0 + i * 0.46, w: CW, h: 0.36, margin: 0, align: "center", valign: "middle" }));
+    if (y0 + (rows.length - 1) * 0.46 + 0.36 > H - 0.05) this.warns.push(
+      `封面题名带太高,汇报人/日期被挤到页外——缩短题名或传 cover({titleSize: 34})`);
     if (a.notes) s.addNotes(a.notes);
   }
 
@@ -1012,7 +1004,7 @@ class Deck {
   }
 
   // ---------- 内容审计 ----------
-  // 单页:结论条写没写数据、底部横条与结论条是否重复、提示框是否复述正文、有没有假上下标
+  // 单页:正文首句写没写数据、底部横条与首句是否重复、提示框是否复述正文、有没有假上下标
   _auditPage(ctx, a) {
     const callouts = [], rest = [a.title || "", a.sub || "", a.conclusion || "", a.banner || ""];
     walkBlocks(a.blocks, (b) => {
@@ -1026,20 +1018,20 @@ class Deck {
       const isSummary = !!c.label && SUMMARY_LABEL.test(String(c.label).trim());
       if (dup < 0.5 && !isSummary) continue;
       this.warns.push(`页 ${ctx.no} 的「${c.label || "提示框"}」` +
-        (dup >= 0.5 ? `与标题/结论条/正文重复约 ${Math.round(dup * 100)}%` : "是总结框") +
+        (dup >= 0.5 ? `与标题/正文首句/正文重复约 ${Math.round(dup * 100)}%` : "是总结框") +
         `——同一句话只说一次:删掉它,或只把正文里没有的那句并进正文`);
     }
     if (a.conclusion) {
       const c = String(a.conclusion);
       if (!/\d/.test(plainText(c))) this.warns.push(
-        `页 ${ctx.no} 结论条没有数字——写具体事实和数据(如"残差中位数从 **7.4%** 降到 **3.1%**"),不写口号`);
+        `页 ${ctx.no} 正文首句没有数字——写具体事实和数据(如"残差中位数从 **7.4%** 降到 **3.1%**"),不写口号`);
       else if (!c.includes("**")) this.warns.push(
-        `页 ${ctx.no} 结论条的关键数据没有标出——用 **…** 包起来,渲染为主色加粗`);
-      if (wrapCount(c, T.conclusion, CW - 0.28) > 2) this.warns.push(
-        `页 ${ctx.no} 结论条超过两行——一页一结论,只留最关键的一句`);
+        `页 ${ctx.no} 正文首句的关键数据没有标出——用 **…** 包起来,渲染为主色加粗`);
+      if (wrapCount(c, T.conclusion, CW) > 2) this.warns.push(
+        `页 ${ctx.no} 正文首句超过两行——一页一结论,只留最关键的一句`);
     }
     if (a.banner && a.conclusion && overlapRatio(a.banner, a.conclusion) >= 0.5) this.warns.push(
-      `页 ${ctx.no} 底部横条与结论条重复——横条按需使用,说的应当是结论条之外的一句,否则删掉`);
+      `页 ${ctx.no} 底部横条与正文首句重复——横条按需使用,说的应当是首句之外的一句,否则删掉`);
     const fake = fakeScripts(pageStrings(a));
     if (fake.length) this.warns.push(
       `页 ${ctx.no} 疑似没用真上下标:${fake.join("、")}——写成 ^{29}Si、R^{2}、Q^{n}、δ_{cal}、CO_{2}` +
@@ -1078,12 +1070,12 @@ class Deck {
       `没有合适的就检索文献,把原图插进来,figure 块写 evidence:"literature" 并在 credit 里注明引用来源;` +
       `确实不需要图的页传 noFigure:true`);
     if (noConcl.length) this.warns.push(
-      `页 ${uniq(noConcl)} 没有结论条——一页一结论:d.page({ conclusion: "……**关键数据**……" });` +
-      `这页确实没有结论(如研究计划、目录式页面)传 conclusion:false`);
+      `页 ${uniq(noConcl)} 没有正文首句——页题只是章节名,这页讲什么要在正文开头说清:` +
+      `d.page({ conclusion: "……**关键数据**……" });确实没有结论(如研究计划)传 conclusion:false`);
     const banLimit = Math.max(2, Math.ceil(pages.length / 4));
     if (bannerPages.length > banLimit) this.warns.push(
       `${bannerPages.length} 页用了底部结论横条(页 ${uniq(bannerPages)},建议 ≤ ${banLimit})——横条按需使用,` +
-      `多数页有页题下的结论条就够了`);
+      `多数页有正文首句就够了`);
     if (this.kind === "defense" || this.kind === "grant") {
       const hay = [];
       for (const o of this.ops) {
@@ -1102,16 +1094,22 @@ class Deck {
   }
 
   // ---------- 内容页 ----------
+  // 页标题就是所在章节名;这页讲什么、结论是什么都放进正文——conclusion 渲染为
+  // 正文第一段(18pt,关键数据 **…** 主色加粗),不再占页题下的位置。
   _page(ctx, a) {
     const s = ctx.slide;
     if (this.layout.header !== "numbered") this._brandCorner(ctx);   // numbered 页眉自己画校徽
+    if (ctx.sec && a.title && plainText(a.title) !== ctx.sec) this.warns.push(
+      `页 ${ctx.no} 传了 title「${plainText(a.title)}」,已改用章节名「${ctx.sec}」作页标题——` +
+      `这页的主题与要点写进正文(conclusion 首句、bullets 导语),关键处用 **…** 加粗`);
+    a = { ...a, title: ctx.sec || a.title || "" };
     this._auditPage(ctx, a);
-    let top = this._header(ctx, a);
-    if (a.conclusion) top += this._conclusionBar(ctx, a.conclusion, top) + 0.22;
+    const top = this._header(ctx, a);
     const srcH = this._sourceLine(ctx, a.source);
     const banH = a.banner ? this._banner(ctx, a.banner, CONTENT_BOTTOM - srcH) + 0.22 : 0;
     const box = { x: M, y: top, w: CW, h: CONTENT_BOTTOM - srcH - banH - top };
-    this._renderBlocks(ctx, a.blocks || [], box, 1, true);
+    const lead = a.conclusion ? [{ type: "text", text: a.conclusion, size: T.conclusion }] : [];
+    this._renderBlocks(ctx, [...lead, ...(a.blocks || [])], box, 1, true);
     this._footer(ctx);
     if (a.notes) s.addNotes(a.notes);
     if (a.appendix) { // 附录页:kicker 前加"附录"标识由调用方在 kicker 传入

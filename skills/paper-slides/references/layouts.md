@@ -16,6 +16,7 @@ new Deck({
   presenter: "汇报人", advisor: "指导教师(可选)",
   org: "单位", date: "2026 年 9 月",
   // 页型变体:pku 主题的答辩/结题场合默认 ribbon / numbered / list / ribbon,其它主题默认经典版式
+  sectionPages: false,          // 默认不出章节过渡页,开头一张目录即可;true 时每个 section 出一张过渡页
   coverStyle: "ribbon" | "split" | "plate" | "band" | "solid",
   headerStyle: "numbered" | "classic",
   sectionStyle: "list" | "classic",
@@ -29,10 +30,10 @@ new Deck({
 
 | 方法 | 页型 | 要点 |
 |---|---|---|
-| `d.cover({notes?, titleSize?})` | 封面 | ribbon:左上校标 + 中部色带(场合/题名/副题)+ 底部色带(汇报人/导师/单位日期);其它变体见 SKILL.md 第 1 步 |
+| `d.cover({notes?, titleSize?, subtitleSize?})` | 封面 | ribbon:左上校标 + 中部通栏色带(题名 40pt / 副题 28pt,白色粗体左对齐)+ 带下居中两行(汇报人 [导师]、[单位 ·] 日期),不印场合;其它变体见 SKILL.md 第 1 步 |
 | `d.toc()` | 目录 | 由 section 调用自动生成,含各章节 note |
-| `d.section(title, note?)` | 章节过渡 | list:只留章节列表,当前章高亮;classic:超大章节号 + 标题 + note + 底部导航 |
-| `d.page({...})` | 内容页 | numbered 页眉:左上章节号块 + 黑色页题 + 通栏线 + 右上校徽;结论条与页底横条见下 |
+| `d.section(title, note?)` | 章节标记 | 登记章节:进目录,并作为其后各内容页的页标题与章节号。默认**不出页**;`sectionPages: true` 时才出过渡页(list:只留章节列表,当前章高亮;classic:超大章节号 + 标题 + note + 底部导航) |
+| `d.page({...})` | 内容页 | 页标题 = 当前章节名。numbered 页眉:左上章节号块 + 黑色页题 + 通栏线 + 右上校徽;正文首句与页底横条见下 |
 | `d.refs([...], {title?})` | 参考文献 | >5 条自动双栏,自动编号 [n] |
 | `d.acknowledge({advisor, collab, funding, facility, group})` | 致谢 | 具体的人与贡献、基金全称加编号 |
 | `d.closing({main?, takeaway?, contact?})` | 结束页 | ribbon:色带 + 白色校徽 + "敬请各位老师批评指正";classic:takeaway + 联系方式 + 底部细带 |
@@ -41,10 +42,10 @@ new Deck({
 
 ```js
 d.page({
-  kicker: "默认为当前章节名,可覆盖;附录页写 '附录 A'(numbered 页眉不显示 kicker)",
-  title: "简短主题,如'原型测试与后续验证';单行,不写结论句",
-  conclusion: "页题下的结论条(18 pt):具体事实和数字,关键数据用 **…** 标主色加粗;无结论的页传 false",
-  banner: "可选:页底主色横条,白字,按需使用,说结论条之外的一句",
+  // 不传 title:页标题自动取当前章节名。传了会被章节名覆盖并报警(不在任何章节里的页才用 title)
+  kicker: "可选:classic 页眉页题上方的小字;默认不显示(numbered 页眉不显示 kicker)",
+  conclusion: "正文首句(18 pt,排在正文最上方):本页主题 + 具体事实和数字,关键数据用 **…** 标主色加粗;无结论的页传 false",
+  banner: "可选:页底主色横条,白字,按需使用,说首句之外的一句",
   noFigure: false,     // 确实不需要图的页传 true,否则缺图报警
   sub: "可选的一行补充说明",
   notes: "演讲者备注:这页的完整论述、怎么讲、怎么答",
@@ -55,11 +56,11 @@ d.page({
 
 ### 行内标记
 
-所有经 slidekit 渲染的文字(页题、结论条、正文、表格、图注)都支持:
+所有经 slidekit 渲染的文字(页题、正文首句、正文、表格、图注)都支持:
 
 | 写法 | 效果 | 例 |
 |---|---|---|
-| `**…**` | 主色加粗(结论条里标关键数据) | `残差降到 **3.1%**` |
+| `**…**` | 主色加粗(正文首句与要点里标关键数据) | `残差降到 **3.1%**` |
 | `^{…}` | 真上标 | `^{29}Si`、`Q^{n}`、`R^{2}` |
 | `_{…}` | 真下标 | `δ_{cal}`、`CO_{2}` |
 
@@ -153,7 +154,7 @@ d.page({
 | 这页没有合适的自有图 | 检索文献原图走 `figure`(`evidence: "literature"`,`credit` 写引用来源) |
 | 并列要点 | `bullets`(全文不用 `cards`) |
 
-页标题一律只点明主题;下面说的"结论"指页题下的结论条 `conclusion`。
+页标题一律是章节名;本页主题写进正文。下面说的"结论"指正文首句 `conclusion`。
 
 - **问题页**:text(问题句,可加大) + 一张说明问题的实测图或实景图;条数、配图由内容定
 - **方法页**:流程图 + bullets(关键参数与约束,给出数值)
@@ -162,7 +163,7 @@ d.page({
 - **指标页**:table(指标 × 实测值 × 测试条件);stats 只放 2–4 个最关键的数,`note` 写条件
 - **局限与下一步页**(答辩/结题必有):bullets 写具体困难——哪一步没做通、原因、打算怎么试;失败案例配图
 - **结论页**:bullets(2–4 条,lead 用"1."、"2."编号);不再加总结提示框
-- **附录页**:kicker 写"附录 A ……",其余同内容页
+- **附录页**:`d.section("附录")` 开一章,其后各页页标题即"附录",其余同内容页
 
 ## 素材准备
 
