@@ -22,3 +22,10 @@ evals/*/runs/
 
 # 打包产物(skill-creator 的 package_skill.py 生成)
 *.skill
+
+# anatomy 模板构建出的页面(node build.mjs 生成)
+skills/paper-figures/examples/anatomy-*/*.html
+
+# anatomy 示例构建出的页面与 PDF(node build.mjs / scripts/print.mjs 生成)
+skills/anatomy/examples/**/*.html
+skills/anatomy/examples/**/*.pdf

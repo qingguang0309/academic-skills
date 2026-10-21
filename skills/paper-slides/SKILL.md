@@ -96,7 +96,7 @@ description: 制作标准、美观的学术汇报 PPT(pptx)。只要用户提到
 
 这些比概念架构图更有说服力。模拟与示意必须标出来,不能让听众把示意图当成实测结果。
 
-**② 自绘的流程图、技术路线图、机理示意**:调用 paper-figures skill 绘制(见第 2.7 步),`evidence: "schematic"`。
+**② 自绘的流程图、技术路线图、机理示意、装置示意**:调用 paper-figures skill 绘制(见第 2.7 步),`evidence: "schematic"`。实验装置、仪器结构、测试夹具这类有体积的实物,走 paper-figures 里的 anatomy 路线出等轴测实体图。
 
 **③ 文献原图**:某页没有合适的自有图时,自行检索文献,把原图插进来:
 
@@ -225,6 +225,7 @@ python3 collage.py assets/ai/duo.png assets/ai/mof.png assets/ai/tower.png --lab
 
 2. **读回执修规格。** `ok: false` 时按每条诊断的 `code` 对症改(换列、换泳道、加大 `style.col_gap`),连续两轮告警数不降就停下如实报告;**不许删连线标签换通过**。
 3. 自由构图的机理示意(不是节点—连线结构)才用 `sf.text_box` / `sf.connect` 手排,框用直角 `rs=0`,最后 `sf.export` 体检。
+   **实验装置、仪器结构、测试夹具**(电镜镜筒、扣式电池夹具、反应釜)不用方框拼:交给本仓库的 anatomy skill 画等轴测实体图,再用 paper-figures 的 `scripts/anatomy_export.py` 导出幻灯版 PNG(线条加粗加深、只截图形、白底裁边);零件名与数值写进旁边的 bullets,不写进图里。详见 paper-figures 的 `references/apparatus-anatomy.md`。
 4. PNG 走 figure 块,标 `evidence: "schematic"`;图里的上下标用 mathtext(`$^{29}$Si`)。
 
 ```js

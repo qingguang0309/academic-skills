@@ -98,9 +98,10 @@ figures/
 - **审稿人批评图**：先把审稿意见逐条翻译成上面自检清单里的具体问题，诊断旧图，再重画。交付时写明每条意见对应改了什么。
 - **流程图/技术路线图（节点 + 连线）**：写声明式 JSON 规格，`python3 schemfig.py flow spec.json -o figures/roadmap --style all --json`（要在 PPT 里改就加 `--formats png,pdf,pptx`；脚本里用 `fig, info = sf.flowchart(spec)` 再 `sf.export`）。节点进"泳道 × 列"网格，连线正交自动布线、不穿节点，模型只决定哪个节点放哪一格、谁连谁。规格字段与示例见 references/schematic-figures.md「声明式流程图」。
 - **方法示意图/机理图**：复杂示意图（多阶段 pipeline、含数据 panel、需要论文+汇报双风格）用 matplotlib + scripts/schemfig.py 画——全图坐标布局、真实感合成 panel、双风格字典，完整技法读 references/schematic-figures.md。**纪律：内容框一律 `sf.text_box`（先实测文字再配框，文字不可能溢出），框间连线一律 `sf.connect`（自动取框沿锚点+自动避障），背景底带传 `solid=False`；先画完所有框再画箭头，最后必须走 `sf.export`（体检拦截+局部放大块）。不要手拍框宽高、不要手拍箭头起止坐标——那正是“文字溢出框线、箭头被覆盖”两大历史顽疾的根源。**三五个框的轻量示意（能带对齐、简单流程）手写 SVG 也可以，字体字号规范照旧。复杂 3D 晶体结构/形貌仍建议用户用 VESTA/Blender 出素材，你负责排版组合与标注。
+- **实验装置/仪器结构/测试夹具示意图**（电镜镜筒、扣式电池夹具、反应釜、谱仪光路这类有体积的真实装置）：不用 schemfig 拼方框，交给本仓库的 **anatomy** skill 画等轴测实体图，再用 `python3 scripts/anatomy_export.py page-light.html -o fig.png` 导出（注入加粗加深的幻灯配置、只截图形、白底裁边）。进 deck 走 figure 块 `evidence: "schematic"`。何时用、怎么导、实测过的坑与 CR2032 夹具模板（`examples/anatomy-coin-cell/`）见 references/apparatus-anatomy.md。
 - **中文图（学位论文/基金本子）**：正文字体换成宋体/黑体（macOS 上 `Songti SC`/`Heiti SC`），字号放大到 9–10.5 pt，栏宽按 A4 版心（约 150 mm）。其余规范不变。
 - **数据量极大**（如百万点的电化学循环数据）：先降采样或分段再画，矢量图里塞几十万个点会让 PDF 卡死排版系统；必要时该图层单独栅格化（`rasterized=True`）。
 
 ## 依赖
 
-matplotlib + numpy 必需，pandas（读数据）、scipy（拟合）常用。缺库时直接 `pip install`。Arial 缺失时（Linux 环境常见）paperfig 会自动回退到 Liberation Sans/DejaVu Sans，交付说明里提醒用户即可。
+matplotlib + numpy 必需，pandas（读数据）、scipy（拟合）常用。缺库时直接 `pip install`。Arial 缺失时（Linux 环境常见）paperfig 会自动回退到 Liberation Sans/DejaVu Sans，交付说明里提醒用户即可。装置示意图另需 anatomy skill（本仓库 `skills/anatomy/`，与 paper-figures 一起复制到 `~/.claude/skills/`）、Node 20.10+ 与 Chrome，只在走 anatomy 那条路时才需要。
